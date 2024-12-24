@@ -1,29 +1,38 @@
 const HealthProviderModal = require("../models/HealthProviderModel");
+const Document = require('../models/DocumentModel');
+const fileFullPath = require("../util/fileFullPath");
 require("dotenv").config();
 
 const uploadDocsApi = async (req, res) => {
+    console.log("req.file", req.file)
     try {
-        const { title, description, category, tags } = req.body;
-        const file = req.file; 
-        
-        if (!file) {
-            return res.status(400).json({ message: 'No file uploaded' });
-        }
-        
-        const newDocument = new Document({
+        const {
             title,
             description,
             category,
-            tags,
-            fileUrl: `/uploads/${file.filename}`,
-            uploadedBy: req.user.id 
+        } = req.body;
+    
+        const DocsData = await Document.create({
+            title,
+            description,
+            category,
+            fileUrl:req.file.path
         });
-
-        await newDocument.save();
-        res.status(201).json({ message: 'Document uploaded successfully', documentId: newDocument._id });
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to upload document', error });
-    }
+        
+    
+        const docsData = await getDocsData(DocsData);
+        res.status(201).json({
+          status: "success",
+          data: {
+            docs: docsData,
+          },
+          message:
+            "Docs Uploaded Sucessfully,",
+        });
+      } catch (error) {
+        console.log("Error in signup", error);
+        res.status(400).json({ status: "error", message: error.message });
+      }
 };
 
 const getAllDocsApi = async (req, res) => {
@@ -102,7 +111,6 @@ const EditDocsApi = async (req, res) => {
     }
 };
 
-
 module.exports = {
     uploadDocsApi,
     getAllDocsApi,
@@ -111,32 +119,12 @@ module.exports = {
     DeleteDocsApi
 };
 
-const getUserData = async (user) => {
-  let healthProvider = null;
-
-  healthProvider = await HealthProviderModal.findOne({ userId: user._id });
-  if (healthProvider) {
-    healthProvider = {
-      providerName: healthProvider.providerName,
-      providerAddress: healthProvider.providerAddress,
-      providerPhone: healthProvider.phone,
-      verified: healthProvider.verified,
-      active: healthProvider.active,
-    };
-  }
-
+const getDocsData = async (docs) => {
   return {
-    id: user._id,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    email: user.email,
-    phone: user.phone,
-    role: user.role,
-    active: user.active,
-    createdAt: user.createdAt,
-    verified: user.verified,
-    verifyAt: user.verifyAt,
-    healthProvider,
+    title:docs.title,
+    description:docs.description,
+    category:docs.category,
+    fileUrl: fileFullPath(docs.fileUrl),
   };
 };
 

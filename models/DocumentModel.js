@@ -8,7 +8,6 @@ const DocumentSchema = new mongoose.Schema({
   uploadedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-    required: true,
   },
   summary: { type: mongoose.Schema.Types.ObjectId, ref: "Summary" },
   createdAt: { type: Date, default: Date.now },
