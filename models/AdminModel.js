@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 
-const userSchema = new mongoose.Schema({
+const adminSchema = new mongoose.Schema({
   firstName: {
     type: String,
     required: [true, "First Name is required"],
@@ -27,8 +27,7 @@ const userSchema = new mongoose.Schema({
       trim: true,
     },
   },
-  googleId: { type: String },
-  facebookId: { type: String },
+
   password: {
     type: String,
     required: [true, "Password is required"],
@@ -60,9 +59,9 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-userSchema.pre("save", function (next) {
+adminSchema.pre("save", function (next) {
   this.password = bcrypt.hashSync(this.password, 10);
   next();
 });
 
-module.exports = mongoose.model("User", userSchema);
+module.exports = mongoose.model("Admin", adminSchema);

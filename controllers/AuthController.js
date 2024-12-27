@@ -3,11 +3,13 @@ const { createSecretToken } = require("../util/SecretToken");
 const HealthProviderModal = require("../models/HealthProviderModel");
 const createOTPFun = require("../util/otp");
 const { sendEmail } = require("../util/sendEmail");
+const crypto = require("crypto");
 // const googleOAuth = require('../util/googleOauth');
 const bcrypt = require("bcrypt");
 const validator = require("validator");
 const OtpModel = require("../models/OtpModel");
-const axios = require("axios");
+const Invitation = require("../models/InvitationModel");
+const Admin = require("../models/AdminModel");
 require("dotenv").config();
 
 const registerApi = async (req, res) => {
@@ -52,12 +54,10 @@ const registerApi = async (req, res) => {
     }
 
     if (password.length < 8) {
-      return res
-        .status(400)
-        .json({
-          status: "error",
-          message: "Password must be at least 8 characters",
-        });
+      return res.status(400).json({
+        status: "error",
+        message: "Password must be at least 8 characters",
+      });
     }
 
     if (password !== confirmPassword) {
@@ -80,15 +80,6 @@ const registerApi = async (req, res) => {
         .json({ status: "error", message: "Phone number already in use" });
     }
 
-    if (!providerName || !providerAddress || !providerPhone) {
-      return res
-        .status(400)
-        .json({
-          status: "error",
-          message: "Health provider details are required",
-        });
-    }
-
     const user = await User.create({
       firstName,
       lastName,
@@ -98,15 +89,26 @@ const registerApi = async (req, res) => {
       role,
     });
 
-    const healthProvider = await HealthProviderModal.create({
-      providerName,
-      providerAddress,
-      phone: providerPhone,
-      active: true,
-      verifyAt: new Date(),
-    });
+    if (user.role === "user") {
+      if (!providerName || !providerAddress || !providerPhone) {
+        return res.status(400).json({
+          status: "error",
+          message: "Health provider details are required",
+        });
+      }
+    }
 
-    console.log("Health provider created", healthProvider);
+    if (user.role === "user") {
+      const healthProvider = await HealthProviderModal.create({
+        providerName,
+        providerAddress,
+        phone: providerPhone,
+        active: true,
+        verifyAt: new Date(),
+      });
+
+      console.log("Health provider created", healthProvider);
+    }
 
     const otp = await createOTPFun(user.email);
     const mailSend = await sendEmail({
@@ -549,52 +551,6 @@ const changePasswordApi = async (req, res, next) => {
   }
 };
 
-const FacebookLoginApi = async (req, res) => {
-  try {
-    const { userId, accessToken } = req.body;
-
-    if (!userId || !accessToken) {
-      return res.status(400).json({ status: "error", message: "userId and accessToken are required" });
-    }
-
-    const response = await axios.get(`https://graph.facebook.com/v12.0/me?fields=id,name,email&access_token=${accessToken}`);
-
-    if (response.data.id !== userId) {
-      return res.status(400).json({ status: "error", message: "Invalid userId or accessToken" });
-    }
-
-    const { name, email } = response.data;
-
-    let user = await User.findOne({ email });
-
-    if (!user) {
-      user = await User.create({
-        firstName: name.split(" ")[0],
-        lastName: name.split(" ")[1] || "",
-        email,
-        password: "",
-        role: "user", 
-        verified: true, 
-      });
-    }
-
-    const token = createSecretToken({ id: user._id });
-    const userData = await getUserData(user);
-
-    res.status(200).json({
-      status: "success",
-      data: {
-        token,
-        user: userData,
-      },
-      message: "Login successful",
-    });
-  } catch (error) {
-    console.log("Error in Facebook login", error);
-    res.status(400).json({ status: "error", message: error.message });
-  }
-};
-
 const logoutApi = async (req, res, next) => {
   try {
     res.clearCookie("token");
@@ -604,26 +560,333 @@ const logoutApi = async (req, res, next) => {
   }
 };
 
-// const googleLogin  = async (req, res) => {
-//   try {
-//     const code = req.body.code;
-//     const profile = await googleOAuth.getProfileInfo(code);
+const getAllUsersApi = async (req, res, next) => {
+  try {
+    if (req.user === undefined) {
+      return res.status(400).json({ status: "error", message: "Invalid user" });
+    }
+    const { id } = req.user;
+    if (!validator.isMongoId(id)) {
+      return res.status(400).json({ status: "error", message: "Invalid id" });
+    }
+    const myUser = await User.findById(id);
+    if (!myUser) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "User not found" });
+    }
+    if (myUser.role !== "super-admin") {
+      return res.status(400).json({
+        status: "error",
+        message: "You are not authorized to access users",
+      });
+    }
+    const userData = await User.find({});
 
-//     const user = {
-//       googleId: profile.sub,
-//       name: profile.name,
-//       firstName: profile.given_name,
-//       lastName: profile.family_name,
-//       email: profile.email,
-//       profilePic: profile.picture,
-//     };
+    const users = [];
 
-//     res.send({ user });
-//   } catch (e) {
-//     console.log(e);
-//     res.status(401).send();
-//   }
-// };
+    await Promise.all(
+      userData.map(async (user) => {
+        const myusersData = await getUserData(user);
+        users.push(myusersData);
+      })
+    );
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        users,
+      },
+      message: "Users fetched successfully",
+    });
+  } catch (error) {
+    console.log("Error in get all users", error);
+    res.status(400).json({ status: "error", message: error.message });
+  }
+};
+
+const getUserbyId = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({
+        status: "error",
+        message: "User Id is required",
+      });
+    }
+
+    const user = await User.findById(userId);
+    const userData = await getUserData(user);
+
+    res.status(200).json({
+      status: "success",
+      data: userData,
+      message: "Getting User Detail Success",
+    });
+  } catch (error) {
+    console.error("Error in getting user details", error);
+    res.status(500).json({ status: "error", message: error });
+  }
+};
+
+const UpdateUserApi = async (req, res, next) => {
+  try {
+    const { userId } = req.body;
+    if (!validator.isMongoId(userId)) {
+      return res.status(400).json({ status: "error", message: "Invalid id" });
+    }
+    const myUser = await User.findById(userId);
+
+    if (!myUser) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "User not found" });
+    }
+    if (myUser.role !== "super-admin") {
+      return res.status(400).json({
+        status: "error",
+        message: "You are not authorized to access users",
+      });
+    }
+
+    const existingUser = await User.findById(userId);
+    if (!existingUser) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found",
+      });
+    }
+
+    const updatedUserFields = {
+      active: req.body.active,
+      firstName: req.body.firstName ?? existingUser.firstName,
+      lastName: req.body.lastName ?? existingUser.lastName,
+      email: req.body.email ?? existingUser.email,
+      phone: req.body.phone ?? existingUser.phone,
+      role: req.body.role ?? existingUser.role,
+    };
+
+    const updatedBusinessData = await User.findOneAndUpdate(
+      { _id: userId },
+      { $set: updatedUserFields },
+      { new: true }
+    );
+
+    const user = await getUserData(updatedBusinessData);
+
+    res.status(200).json({
+      status: "success",
+      user,
+      message: "Users Updated Successfully",
+    });
+  } catch (error) {
+    console.log("Error in get all users", error);
+    res.status(400).json({ status: "error", message: error.message });
+  }
+};
+
+const ActivateUserAccount = async (req, res, next) => {
+  try {
+    const { userId, active, verified } = req.body;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(400).json({
+        status: "error",
+        message: "user not found",
+      });
+    }
+    await User.findByIdAndUpdate(
+      { _id: userId },
+      {
+        $set: {
+          active: active,
+          verified: verified,
+        },
+      },
+      { upsert: true }
+    );
+    const userData = await User.findById(userId);
+
+    console.log("userData", userData);
+    res.status(200).json({
+      status: "success",
+      data: userData,
+      message: "User Activated Successfully",
+    });
+  } catch (error) {
+    console.error("Error in getting Package", error);
+    res.status(500).json({ status: "error", message: error });
+  }
+};
+
+const SentInvitationAdminApi = async (req, res, next) => {
+  try {
+    const { email, role , userId } = req.body;
+
+    const invitationToken = crypto.randomBytes(32).toString("hex");
+      await Invitation.create({
+      email,
+      role,
+      invitationToken,
+      invitedBy: req?.user?.id  || userId,
+    });
+
+    const setupLink = `${process.env.CLIENT_URL}/setup-account/${invitationToken}`;
+
+    const mailSend = await sendEmail({
+      email: req.body.email,
+      subject: "Admin Invitation",
+      text:  `Set up your account here: ${setupLink}`,
+    });
+
+    if (!mailSend) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Error in sending OTP email" });
+    }
+
+    res.status(201).json({ message: "Invitation sent successfully" });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Failed to send invitation", error: error.message });
+  }
+};
+
+const createNewAdminApi =async(req, res, next)=>{
+  try {
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
+      password,
+      confirmPassword,
+      role
+    } = req.body;
+
+    if (
+      !email ||
+      !firstName ||
+      !lastName ||
+      !phone ||
+      !password ||
+      !confirmPassword
+    ) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "All fields are required" });
+    }
+
+    if (!validator.isEmail(email)) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Invalid email" });
+    }
+
+    const { code, number } = phone;
+    if (!code || !number) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Phone object is incomplete" });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        status: "error",
+        message: "Password must be at least 8 characters",
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Passwords do not match" });
+    }
+
+    const isEmailExist = await User.findOne({ email });
+    if (isEmailExist) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Email already in use" });
+    }
+
+    const isPhoneExist = await User.findOne({ phone });
+    if (isPhoneExist) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Phone number already in use" });
+    }
+
+    const user = await Admin.create({
+      firstName,
+      lastName,
+      email,
+      phone: { code, number },
+      password,
+      role,
+    });
+
+    const userData = await getUserData(user);
+    res.status(201).json({
+      status: "success",
+      data: {
+        user: userData,
+      },
+      message:
+        "Account created successfully, please check your email for OTP verification",
+    });
+  } catch (error) {
+    console.log("Error in signup", error);
+    res.status(400).json({ status: "error", message: error.message });
+  }
+}
+
+const GetAllAdminsApi = async (req, res, next) => {
+  try {
+    // if (req.user === undefined) {
+    //   return res.status(400).json({ status: "error", message: "Invalid user" });
+    // }
+    // const { id } = req.user;
+    // if (!validator.isMongoId(id)) {
+    //   return res.status(400).json({ status: "error", message: "Invalid id" });
+    // }
+    // const myUser = await User.findById(id);
+    // if (!myUser) {
+    //   return res
+    //     .status(400)
+    //     .json({ status: "error", message: "User not found" });
+    // }
+    // if (myUser.role !== "super-admin") {
+    //   return res.status(400).json({
+    //     status: "error",
+    //     message: "You are not authorized to access users",
+    //   });
+    // }
+    const userData = await Admin.find({});
+
+    const admins = [];
+
+    await Promise.all(
+      userData.map(async (user) => {
+        const myusersData = await getAdminsData(user);
+        admins.push(myusersData);
+      })
+    );
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        admins,
+      },
+      message: "Users fetched successfully",
+    });
+  } catch (error) {
+    console.log("Error in get all users", error);
+    res.status(400).json({ status: "error", message: error.message });
+  }
+};
 
 module.exports = {
   registerApi,
@@ -633,21 +896,41 @@ module.exports = {
   resetPasswordApi,
   changePasswordApi,
   logoutApi,
-  FacebookLoginApi,
-  // googleLogin,
+  getAllUsersApi,
+  getUserbyId,
+  UpdateUserApi,
+  ActivateUserAccount,
+  SentInvitationAdminApi,
+  createNewAdminApi,
+  GetAllAdminsApi
 };
+
+const getAdminsData =async (user) =>{
+  return {
+    id: user._id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    email: user.email,
+    phone: user.phone,
+    role: user.role,
+    active: user.active,
+    createdAt: user.createdAt,
+    verified: user.verified,
+    verifyAt: user.verifyAt,
+  };
+}
 
 const getUserData = async (user) => {
   let healthProvider = null;
-
-  healthProvider = await HealthProviderModal.findOne({ userId: user._id });
+  healthProvider = await HealthProviderModal.findOne({ _id: user._id });
+  console.log("health provider details 655", healthProvider);
   if (healthProvider) {
     healthProvider = {
-      providerName: healthProvider.providerName,
-      providerAddress: healthProvider.providerAddress,
-      providerPhone: healthProvider.phone,
-      verified: healthProvider.verified,
-      active: healthProvider.active,
+      providerName: healthProvider?.providerName,
+      providerAddress: healthProvider?.providerAddress,
+      providerPhone: healthProvider?.phone,
+      verified: healthProvider?.verified,
+      active: healthProvider?.active,
     };
   }
 

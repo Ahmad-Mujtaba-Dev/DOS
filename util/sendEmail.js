@@ -1,22 +1,29 @@
-require("dotenv").config();
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
-  host: process.env.MAIL_HOST,
-  port: process.env.MAIL_PORT,
-  secure: true,
+  service: "gmail",
+  port: parseInt(process.env.MAIL_PORT), 
+  secure: process.env.MAIL_PORT === "465", 
   auth: {
-    user: process.env.MAIL_USERNAME,
-    pass: process.env.MAIL_PASSWORD,
+    user: process.env.MAIL_USERNAME, 
+    pass: process.env.MAIL_PASSWORD, 
   },
 });
 
-module.exports.sendEmail = async ({ email, subject, text, html }) => {
-  console.log("text", text);
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("SMTP connection error:", error);
+  } else {
+    console.log("SMTP server is ready to send emails");
+  }
+});
+
+module.exports.sendEmail = async ({ email,subject, text, html }) => {
+  console.log("email 22",email)
   try {
     const info = await transporter.sendMail(
       {
-        from: `"Makely Pro" ${process.env.MAIL_FROM_ADDRESS}`,
+        from: `"Dos" ${process.env.MAIL_FROM_ADDRESS}`,
         to: email,
         subject: subject,
         text: text,

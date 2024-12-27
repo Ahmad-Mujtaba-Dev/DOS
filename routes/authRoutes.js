@@ -6,7 +6,13 @@ const {
   resetPasswordApi,
   changePasswordApi,
   logoutApi,
-  // googleLogin,
+  getAllUsersApi,
+  getUserbyId,
+  UpdateUserApi,
+  ActivateUserAccount,
+  SentInvitationAdminApi,
+  createNewAdminApi,
+  GetAllAdminsApi,
 } = require("../controllers/AuthController.js");
 const auth = require("../middlewares/auth");
 const router = require("express").Router();
@@ -18,6 +24,13 @@ router.post("/auth/register-user-api", registerApi);
 router.post("/auth/forget-password", forgetPasswordApi);
 router.post("/auth/reset-password", resetPasswordApi);
 router.post("/change-password", auth, changePasswordApi);
+router.get("/auth/get-all-users", auth , getAllUsersApi)
+router.get('/auth/get-user-details', getUserbyId)
+router.get('/auth/update-user-details', UpdateUserApi)
+router.post('/auth/account-status-change', ActivateUserAccount)
+router.post('/auth/send-admin-request-api', SentInvitationAdminApi)
+router.post('/auth/create-new-admin-api', createNewAdminApi)
+router.get('/auth/get-all-admins-api', GetAllAdminsApi)
 
 router.get("/login/success", (req, res) => {
 	if (req.user) {
