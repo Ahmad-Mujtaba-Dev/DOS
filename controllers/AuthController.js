@@ -722,14 +722,14 @@ const ActivateUserAccount = async (req, res, next) => {
 
 const SentInvitationAdminApi = async (req, res, next) => {
   try {
-    const { email, role , userId } = req.body;
+    const { email, role, userId } = req.body;
 
     const invitationToken = crypto.randomBytes(32).toString("hex");
-      await Invitation.create({
+    await Invitation.create({
       email,
       role,
       invitationToken,
-      invitedBy: req?.user?.id  || userId,
+      invitedBy: req?.user?.id || userId,
     });
 
     const setupLink = `${process.env.CLIENT_URL}/setup-account/${invitationToken}`;
@@ -737,7 +737,7 @@ const SentInvitationAdminApi = async (req, res, next) => {
     const mailSend = await sendEmail({
       email: req.body.email,
       subject: "Admin Invitation",
-      text:  `Set up your account here: ${setupLink}`,
+      text: `Set up your account here: ${setupLink}`,
     });
 
     if (!mailSend) {
@@ -754,7 +754,7 @@ const SentInvitationAdminApi = async (req, res, next) => {
   }
 };
 
-const createNewAdminApi =async(req, res, next)=>{
+const createNewAdminApi = async (req, res, next) => {
   try {
     const {
       firstName,
@@ -763,7 +763,7 @@ const createNewAdminApi =async(req, res, next)=>{
       phone,
       password,
       confirmPassword,
-      role
+      role,
     } = req.body;
 
     if (
@@ -841,7 +841,7 @@ const createNewAdminApi =async(req, res, next)=>{
     console.log("Error in signup", error);
     res.status(400).json({ status: "error", message: error.message });
   }
-}
+};
 
 const GetAllAdminsApi = async (req, res, next) => {
   try {
@@ -864,7 +864,8 @@ const GetAllAdminsApi = async (req, res, next) => {
     //     message: "You are not authorized to access users",
     //   });
     // }
-    const userData = await Admin.find({});
+
+    const userData = await Admin.find({ deletedAt: { $exists: false } });
 
     const admins = [];
 
@@ -880,10 +881,121 @@ const GetAllAdminsApi = async (req, res, next) => {
       data: {
         admins,
       },
-      message: "Users fetched successfully",
+      message: "Admins fetched successfully",
     });
   } catch (error) {
-    console.log("Error in get all users", error);
+    console.log("Error in get all admins", error);
+    res.status(400).json({ status: "error", message: error.message });
+  }
+};
+
+const deleteAdminApi = async (req, res, next) => {
+  try {
+    const { adminId } = req.params;
+
+    if (!adminId || !validator.isMongoId(adminId)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid Admin ID",
+      });
+    }
+
+    const admin = await Admin.findById(adminId);
+
+    if (!admin) {
+      return res.status(400).json({
+        status: "error",
+        message: "Admin not found",
+      });
+    }
+
+    await Admin.findByIdAndUpdate({ _id: adminId }, { deletedAt: new Date() });
+
+    const mailSend = await sendEmail({
+      email: admin.email,
+      subject: "Admin Invitation",
+      text: "Hi ! you are removed.",
+    });
+
+    if (!mailSend) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Error in sending OTP email" });
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: "Admin Removed successfully",
+      data: admin,
+    });
+  } catch (error) {
+    console.log("Error in deleting Admin", error);
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+};
+
+const changeAdminPasswordApi = async (req, res, next) => {
+  try {
+    const { newPassword, confirmPassword, adminId } = req.body;
+    if (!adminId || !newPassword || !confirmPassword) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "All fields are required" });
+    }
+    if (newPassword.length < 8) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Password must be 8 characters" });
+    }
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        status: "error",
+        message: "Password and confirm password not match",
+      });
+    }
+    // if (oldPassword === newPassword) {
+    //   return res.status(400).json({
+    //     status: "error",
+    //     message: "Old password and new password should not be same",
+    //   });
+    // }
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Admin not found" });
+    }
+    // if (!(await bcrypt.compare(oldPassword, admin.password))) {
+    //   return res
+    //     .status(400)
+    //     .json({ status: "error", message: "Invalid old password" });
+    // }
+    await Admin.updateOne(
+      { _id: adminId },
+      { password: bcrypt.hashSync(newPassword, 10) }
+    );
+
+    const mailSend = await sendEmail({
+      email: admin.email,
+      subject: "Admin Invitation",
+      text: "Your Password is Changes by admin.",
+    });
+    console.log("admin.email", admin?.email);
+    if (!mailSend) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Error in sending OTP email" });
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    console.log("Error in change password", error);
     res.status(400).json({ status: "error", message: error.message });
   }
 };
@@ -902,10 +1014,12 @@ module.exports = {
   ActivateUserAccount,
   SentInvitationAdminApi,
   createNewAdminApi,
-  GetAllAdminsApi
+  GetAllAdminsApi,
+  deleteAdminApi,
+  changeAdminPasswordApi,
 };
 
-const getAdminsData =async (user) =>{
+const getAdminsData = async (user) => {
   return {
     id: user._id,
     firstName: user.firstName,
@@ -918,7 +1032,7 @@ const getAdminsData =async (user) =>{
     verified: user.verified,
     verifyAt: user.verifyAt,
   };
-}
+};
 
 const getUserData = async (user) => {
   let healthProvider = null;

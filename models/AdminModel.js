@@ -9,14 +9,10 @@ const adminSchema = new mongoose.Schema({
   },
   lastName: {
     type: String,
-    unique: true,
-    sparse: true,
-    required: [true, "Last Name is required"],
   },
   email: {
     type: String,
     required: [true, "Email is required"],
-    unique: true,
   },
   phone: {
     code: {

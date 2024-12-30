@@ -13,6 +13,8 @@ const {
   SentInvitationAdminApi,
   createNewAdminApi,
   GetAllAdminsApi,
+  deleteAdminApi,
+  changeAdminPasswordApi,
 } = require("../controllers/AuthController.js");
 const auth = require("../middlewares/auth");
 const router = require("express").Router();
@@ -31,6 +33,8 @@ router.post('/auth/account-status-change', ActivateUserAccount)
 router.post('/auth/send-admin-request-api', SentInvitationAdminApi)
 router.post('/auth/create-new-admin-api', createNewAdminApi)
 router.get('/auth/get-all-admins-api', GetAllAdminsApi)
+router.get("/admin/delete/:adminId", deleteAdminApi);
+router.post('/admin/reset-password', changeAdminPasswordApi)
 
 router.get("/login/success", (req, res) => {
 	if (req.user) {
