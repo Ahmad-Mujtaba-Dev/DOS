@@ -5,8 +5,6 @@ const User = require("../models/UserModel");
 const fileFullPath = require("../util/fileFullPath");
 const fs = require("fs");
 const path = require("path");
-require("dotenv").config();
-// const uploadDir = path.resolve("../uploads/Docs");
 
 const uploadDocsApi = async (req, res) => {
   console.log("req.file", req.file);
@@ -46,6 +44,69 @@ const getAllDocsApi = async (req, res) => {
     res.status(200).json({ documents });
   } catch (error) {
     res.status(500).json({ message: "Failed fetch documents", error });
+  }
+};
+
+const addDocsLabelApi = async (req, res) => {
+  try {
+    const { docsName, docsId } = req.body;
+    const docs = await Document.findOne({ _id: docsId });
+    console.log("docs", docs);
+
+    await Document.findOneAndUpdate(
+      { _id: docsId },
+      {
+        $set: {
+          title: docsName,
+        },
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      status: "success",
+      message: "Docs Label Added Successfully",
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to add document name", error });
+  }
+};
+
+const addDocsTagsApi = async (req, res) => {
+  try {
+    const { tags, docsId } = req.body;
+
+    if (!docsId || !Array.isArray(tags)) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Invalid input: docsId and tags are required",
+      });
+    }
+
+    const updatedDoc = await Document.findOneAndUpdate(
+      { _id: docsId },
+      { $set: { tags } },
+      { new: true }
+    );
+
+    if (!updatedDoc) {
+      return res.status(404).json({
+        status: "fail",
+        message: "Document not found",
+      });
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: "Document tags added successfully",
+      document: updatedDoc,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: "Failed to add document tags",
+      error: error.message,
+    });
   }
 };
 
@@ -159,13 +220,13 @@ const AddCategoriesApi = async (req, res) => {
   try {
     const { name } = req.body;
 
-    const existingCategory = await Catagory.findOne({ categoryName:name  });
+    const existingCategory = await Catagory.findOne({ categoryName: name });
     if (existingCategory) {
       return res.status(400).json({ message: "Category already exists" });
     }
 
     const category = await Catagory.create({
-      categoryName:name,
+      categoryName: name,
     });
 
     const categoryData = await getCategoryData(category);
@@ -174,7 +235,7 @@ const AddCategoriesApi = async (req, res) => {
       data: {
         user: categoryData,
       },
-      message: "categorie added successfully"
+      message: "categorie added successfully",
     });
   } catch (error) {
     res
@@ -183,40 +244,134 @@ const AddCategoriesApi = async (req, res) => {
   }
 };
 
-//  const AssignDocstoPatientApi = async (req, res) => {
-//   try {
-//     const { docId } = req.params;
-//     const { patientId } = req.body;
+const getallCategories = async (req, res, next) => {
+  try {
+    const category = await Catagory.find({});
 
-//     const document = await Document.findById(docId);
-//     if (!document) {
-//       return res.status(404).json({ message: 'Document not found' });
-//     }
+    if (!category || category.length === 0) {
+      return res.status(404).json({ message: "No Category found" });
+    }
 
-//     const patient = await Patient.findById(patientId);
-//     if (!patient) {
-//       return res.status(404).json({ message: 'Patient not found' });
-//     }
+    const categories = [];
 
-//     document.patient = patient._id;
-//     await document.save();
+    await Promise.all(
+      category.map(async (user) => {
+        const myCategoryData = await getCategoryData(user);
+        categories.push(myCategoryData);
+      })
+    );
 
-//     res.status(200).json({ message: 'Document assigned to patient', document });
-//   } catch (error) {
-//     res.status(500).json({ message: 'Error assigning document', error: error.message });
-//   }
-// }
+    res.status(200).json({
+      status: "success",
+      data: {
+        categories,
+      },
+      message: "Categories fetched successfully",
+    });
+  } catch (error) {
+    console.log("Error in get all Categories", error);
+    res.status(400).json({ status: "error", message: error.message });
+  }
+};
 
+const AssignDocstoPatientApi = async (req, res) => {
+  try {
+    const { docId, patientId } = req.body;
+
+    if (!docId || !patientId) {
+      return res
+        .status(400)
+        .json({ message: "docId and patientId are required" });
+    }
+
+    const document = await Document.findById(docId);
+    if (!document) {
+      return res.status(404).json({ message: "Document not found" });
+    }
+
+    const patient = await User.findById(patientId);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    document.patient = patient._id;
+    await document.save();
+
+    const populatedDocument = await Document.findById(docId)
+      .populate("uploadedBy", "firstName lastName email")
+      .populate(
+        "patient",
+        "firstName lastName email phone role active createdAt verified verifyAt"
+      );
+
+    res.status(200).json({
+      status: "success",
+      message: "Document assigned to patient successfully",
+      document: populatedDocument,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: "Error assigning document to patient",
+      error: error.message,
+    });
+  }
+};
+
+const CategorizeDocsApi = async (req, res) => {
+  try {
+    const { categoryId, docId } = req.body;
+
+    if (!docId || !categoryId) {
+      return res
+        .status(400)
+        .json({ message: "categoryId and docsId are required" });
+    }
+
+    const document = await Document.findById(docId);
+    if (!document) {
+      return res.status(404).json({ message: "Document not found" });
+    }
+
+    const category = await Catagory.findById(categoryId);
+    if (!category) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+
+    document.category = category.categoryName;
+    await document.save();
+
+    const populatedDocs = await Document.findById(docId)
+      .populate("uploadedBy", "firstName lastName email")
+      .populate("category", "categoryName");
+
+    res.status(200).json({
+      status: "success",
+      message: "Document added to Category Successfull",
+      document: populatedDocs,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: "Error assigning document to category",
+      error: error.message,
+    });
+  }
+};
 
 module.exports = {
   uploadDocsApi,
   getAllDocsApi,
+  addDocsLabelApi,
   DownloadDocApi,
   DeleteDocsApi,
   EditDocsLabelApi,
-  // AssignDocstoPatientApi,
+  addDocsTagsApi,
+  AssignDocstoPatientApi,
   AddCategoriesApi,
   getallPatient,
+  getallCategories,
+  CategorizeDocsApi,
 };
 
 const getDocsData = async (docs) => {
@@ -224,15 +379,18 @@ const getDocsData = async (docs) => {
     title: docs?.title,
     description: docs?.description,
     category: docs?.category,
+    tags: docs?.tags,
     fileUrl: fileFullPath(docs?.fileUrl),
   };
 };
 
-const getCategoryData = async (category) =>{
+const getCategoryData = async (category) => {
   return {
-    categoryName:category.categoryName,
-  }
-}
+    id: category._id,
+    categoryName: category.categoryName,
+    createdAt: category.createdAt,
+  };
+};
 
 const getPatientData = async (user) => {
   let healthProvider = null;

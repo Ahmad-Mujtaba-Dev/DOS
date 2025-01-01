@@ -7,13 +7,16 @@ const adminSchema = new mongoose.Schema({
     required: [true, "First Name is required"],
     trim: true,
   },
+  
   lastName: {
     type: String,
   },
+
   email: {
     type: String,
     required: [true, "Email is required"],
   },
+
   phone: {
     code: {
       type: String,
@@ -30,26 +33,32 @@ const adminSchema = new mongoose.Schema({
     length: [8, "Password must be atleast 8 characters long"],
     trim: true,
   },
+
   role: {
     type: String,
     enum: ["admin", "user", "super-admin"],
     default: "user",
   },
+
   createdAt: {
     type: Date,
     default: new Date(),
   },
+
   verified: {
     type: Boolean,
     default: false,
   },
+
   active: {
     type: Boolean,
     default: false,
   },
+
   verifyAt: {
     type: Date,
   },
+
   deletedAt: {
     type: Date,
   },

@@ -89,7 +89,7 @@ const registerApi = async (req, res) => {
       role,
     });
 
-    if (user.role === "user") {
+    if (user.role === "patient") {
       if (!providerName || !providerAddress || !providerPhone) {
         return res.status(400).json({
           status: "error",
@@ -98,7 +98,7 @@ const registerApi = async (req, res) => {
       }
     }
 
-    if (user.role === "user") {
+    if (user.role === "patient") {
       const healthProvider = await HealthProviderModal.create({
         providerName,
         providerAddress,

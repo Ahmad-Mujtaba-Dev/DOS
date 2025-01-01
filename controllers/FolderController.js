@@ -18,6 +18,13 @@ const createFolderApi = async (req, res) => {
       });
     }
 
+    const isfolderExist = await Folder.findOne({ folderName });
+    if (isfolderExist) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Folder already in use" });
+    }
+
     const newFolder = await Folder.create({
       folderName,
       createdBy: userId,
@@ -33,69 +40,44 @@ const createFolderApi = async (req, res) => {
   }
 };
 
-// const addDocumentToFolderApi = async (req, res) => {
-//     try {
-//       const { docsId, folderId } = req.body;
-
-//       const docs = await Document.findById({ _id: docsId });
-//       console.log("SelectedDocs", SelectedDocs);
-//       if (!docs) {
-//           return res.status(400).json({
-//             status: "error",
-//             message: "Selected Docs not Found",
-//           });
-//         }
-
-//       // const folder = await Folder.findByIdAndUpdate(
-//       //   folderId,
-//       //   { $addToSet: { documents: docsId } },
-//       //   { new: true }
-//       // );
-//       // console.log("folder 32", folder);
-
-//       // const myFolderData = await Folder.findOne({ _id: docsId });
-//       // console.log(myFolderData, "myfolderData");
-
-//       // res.status(200).json({
-//       //   status: "success",
-//       //   data: myFolderData,
-//       //   message: "Docs Added to folder Successfully",
-//       // });
-//     } catch (error) {
-//       res.status(500).json({ message: "Failed to add docs to folder", error });
-//     }
-//   };
-
 const addDocumentToFolderApi = async (req, res) => {
   try {
-    const { docsId, folderId } = req.body;
-    console.log("folder",folderId)
+    const { folderId, docId } = req.body;
 
-    const docs = await Document.findOne({ _id: docsId });
-    if (!docs) {
-      return res.status(400).json({
-        status: "error",
-        message: "Selected Docs not Found",
-      });
+    if (!docId || !folderId) {
+      return res
+        .status(400)
+        .json({ message: "folderId and docsId are required" });
     }
 
-    const folder = await Folder.findOneAndUpdate(
-      { _id: folderId },
-      {
-        $set: {
-          documents: docs,
-        },
-      },
-      { new: true }
-    );
-    console.log(folder, "folder");
+    const document = await Document.findById(docId);
+    if (!document) {
+      return res.status(404).json({ message: "Document not found" });
+    }
+
+    const folder = await Folder.findById(folderId);
+    if (!folder) {
+      return res.status(404).json({ message: "Folder not found" });
+    }
+
+    document.folder = folder.folderName;
+    await document.save();
+
+    const populatedDocs = await Document.findById(docId)
+      .populate("uploadedBy", "firstName lastName email")
+      .populate("folder", "folderName");
 
     res.status(200).json({
       status: "success",
-      message: "Docs Added to Folder  Successfully",
+      message: "Document added to Folder Successfull",
+      document: populatedDocs,
     });
   } catch (error) {
-    res.status(500).json({ message: "error adding docs to folder", error });
+    res.status(500).json({
+      status: "error",
+      message: "Error assigning document to folder",
+      error: error.message,
+    });
   }
 };
 

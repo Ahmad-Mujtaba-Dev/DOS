@@ -12,8 +12,6 @@ const FolderSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    documents: [
-    ],
   },
   { timestamps: true }
 );
