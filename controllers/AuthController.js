@@ -202,7 +202,7 @@ const verifyOtpApi = async (req, res, next) => {
   }
 };
 
-const loginApi = async (req, res, next) => {
+const loginApi = async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
@@ -1037,7 +1037,6 @@ const getAdminsData = async (user) => {
 const getUserData = async (user) => {
   let healthProvider = null;
   healthProvider = await HealthProviderModal.findOne({ _id: user._id });
-  console.log("health provider details 655", healthProvider);
   if (healthProvider) {
     healthProvider = {
       providerName: healthProvider?.providerName,
@@ -1050,15 +1049,15 @@ const getUserData = async (user) => {
 
   return {
     id: user._id,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    email: user.email,
-    phone: user.phone,
-    role: user.role,
-    active: user.active,
-    createdAt: user.createdAt,
-    verified: user.verified,
-    verifyAt: user.verifyAt,
+    firstName: user?.firstName,
+    lastName: user?.lastName,
+    email: user?.email,
+    phone: user?.phone,
+    role: user?.role,
+    active: user?.active,
+    createdAt: user?.createdAt,
+    verified: user?.verified,
+    verifyAt: user?.verifyAt,
     healthProvider,
   };
 };

@@ -113,10 +113,8 @@ const addDocsTagsApi = async (req, res) => {
 const DownloadDocApi = async (req, res) => {
   try {
     const { _id } = req.body;
-    console.log("id", _id);
 
     const document = await Document.findById(_id);
-    console.log("document 55", document);
 
     if (!document) {
       return res.status(404).json({ message: "Document not found" });
