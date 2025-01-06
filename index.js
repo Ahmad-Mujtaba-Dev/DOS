@@ -21,7 +21,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static("uploads"));
-app.use("/images", express.static("images"));
+app.use("/file", express.static("file"));
 const passport = require("passport");
 
 // CORS options

@@ -100,6 +100,7 @@ const registerApi = async (req, res) => {
 
     if (user.role === "patient") {
       const healthProvider = await HealthProviderModal.create({
+        userId: user._id,
         providerName,
         providerAddress,
         phone: providerPhone,
@@ -131,7 +132,7 @@ const registerApi = async (req, res) => {
         user: userData,
       },
       message:
-        "Account created successfully, please check your email for OTP verification",
+        "please check your email for OTP verification",
     });
   } catch (error) {
     console.log("Error in signup", error);
@@ -342,103 +343,30 @@ const loginApi = async (req, res) => {
 const forgetPasswordApi = async (req, res, next) => {
   try {
     const { email } = req.body;
-    console.log("phone 432", email);
     const emailWithoutQuotes = email.replace(/"/g, "").replace(/\s+/g, "");
-    console.log("Formatted email:", emailWithoutQuotes);
 
     if (!email) {
       return res
         .status(400)
-        .json({ status: "error", message: "Email is required" });
+        .json({ status: "error", message: "Registered email is required" });
     }
     const user = await User.findOne({
       $or: [{ email: emailWithoutQuotes }],
     });
-    console.log("phone 442", user);
 
     if (!user) {
       return res
         .status(400)
         .json({ status: "error", message: "Invalid Credientials" });
     } else {
-      const otp = await createOTPFun(user.email);
+      const invitationToken = crypto.randomBytes(32).toString("hex");
+
+      const setupLink = `${process.env.CLIENT_URL}/forget-password/${invitationToken}`;
 
       const mailSend = await sendEmail({
         email: user.email,
-        subject: "Resend Otp",
-        text: `Your OTP for forget password is ${otp}`,
-        html: `<!DOCTYPE html>
-        <html lang="en">
-          <head>
-            <meta charset="UTF-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <title>Document</title>
-
-            <style>
-
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500&display=swap');
-
-    /* Default styles outside of media query */
-
-
-    /* Media query for screen width up to 768px */
-    @media screen and (max-width: 800px) {
-      .para-makely1{
-        font-size: 0.625rem !important;
-        line-height: 19px !important;
-
-      }
-      .para-makely{
-        font-size: 0.625rem !important;
-
-
-      }
-      .hole-container{
-        padding-left: 0px !important;
-        padding-right: 8px !important;
-      }
-      body{
-        background-color: white !important;
-        padding-top:10px !important;
-        padding-bottom:10px !important;
-        padding-right:20px !important;
-        padding-left:20px !important;
-      }
-      .card-wdth{
-        max-width: 400px !important;
-
-      }
-    }
-  </style>
-          </head>
-          <body style="background-color: #E3E3E3;padding-top:30px;padding-bottom:30px;padding-right:15px;padding-left:15px;">
-
-              <div class="card-wdth" style="background-color: white !important; max-width: 550px; height: auto;padding: 15px; margin:auto;" >
-                <div style="text-align: center;margin-top: 10px; padding-top: 20px;"> <img src="
-                "  width="160px" height="auto" alt="">
-                </div>
-            <div><p style="text-align: center;font-weight: 500;font-size: 26px;font-family: 'Poppins', sans-serif;font-size: 18px;color: #000000;">Resend Otp  </p></div>
-            <div class="hole-container" style="padding-left: 35px;padding-right:35px;font-family: 'Poppins',sans-serif;font-weight: 400;"> 
-            <div style="color: #303030;font-size: 14px;font-family: 'Poppins', sans-serif;padding-top:13px;"><p>Dear User,</p></div>
-
-        <div><p class="para-makely" style="color: #303030;font-size: 14px;font-family: 'Poppins', sans-serif;padding-top:13px;">Your One Time Passcode (OTP) - Resent for Your Convenience</p></div>
-        <div style="height: 70px;background-color: rgb(206, 246, 232);border: none;outline: none;width: 100%;letter-spacing: 10px;font-size: 40px;font-weight: 600;display:flex;justify-content:center;align-items: center;padding:5px;margin-top:15px">
-        <span style="font-size:30px;margin:auto">${otp}</span>
-          <!-- <input type="tel" id="otp" name="otp" maxlength="6" style="border: none;outline: none;text-align: center;height: 70px;background-color: rgb(206, 246, 232);width: 100%;letter-spacing: 10px;font-size: 40px;font-weight: 600;" > -->
-        </div>
-        <div class="para-makely" style="padding-top: 13px; color: #303030;font-size: 14px;font-family: 'Poppins', sans-serif"><p>This OTP is Valid For 05 Mins</p></div>
-        <div ><p class="para-makely" style="color: #FF5151;font-size: 14px;font-family: 'Poppins', sans-serif;">“Please Don't Share Your OTP With Anyone For Your Account <br> Security.”</p></div>
-
-        <p class="para-makely" style="color: #303030 ;font-size: 14px;font-weight: 600;font-size: 18px;font-family: 'Poppins', sans-serif;padding-top:12px">Thank You</p>
-        </div>
-
-            </div>
-
-            </body>
-
-
-        </html>
-        `,
+        subject: "Forget Password",
+        text: `Your link for forget password is ${setupLink} `,
       });
 
       if (!mailSend) {
@@ -449,7 +377,7 @@ const forgetPasswordApi = async (req, res, next) => {
       }
       res.status(201).json({
         status: "success",
-        message: "OTP sent successfully",
+        message: "Check Your Email for Passord Recovery",
       });
     }
   } catch (error) {
@@ -1035,13 +963,14 @@ const getAdminsData = async (user) => {
 };
 
 const getUserData = async (user) => {
+  console.log("user",user._id)
   let healthProvider = null;
-  healthProvider = await HealthProviderModal.findOne({ _id: user._id });
+  healthProvider = await HealthProviderModal.findOne({ userId: user._id });
+  console.log("heat",healthProvider)
   if (healthProvider) {
     healthProvider = {
       providerName: healthProvider?.providerName,
       providerAddress: healthProvider?.providerAddress,
-      providerPhone: healthProvider?.phone,
       verified: healthProvider?.verified,
       active: healthProvider?.active,
     };

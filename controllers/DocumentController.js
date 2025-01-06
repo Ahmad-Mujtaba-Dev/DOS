@@ -15,7 +15,7 @@ const uploadDocsApi = async (req, res) => {
       title,
       description,
       category,
-      fileUrl: req.file.path,
+      fileUrl: req?.file?.path,
     });
 
     const docsData = await getDocsData(DocsData);

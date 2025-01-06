@@ -9,7 +9,6 @@ const userSchema = new mongoose.Schema({
   },
   lastName: {
     type: String,
-    unique: true,
     sparse: true,
     required: [true, "Last Name is required"],
   },

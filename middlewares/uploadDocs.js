@@ -19,4 +19,6 @@ const upload = (path) => {
   return multer({ storage: storage(path) });
 };
 
+console.log("upload",upload)
+
 module.exports = upload;
