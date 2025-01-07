@@ -5,31 +5,46 @@ const User = require("../models/UserModel");
 const fileFullPath = require("../util/fileFullPath");
 const fs = require("fs");
 const path = require("path");
+const AWS = require("aws-sdk");
+const { v4: uuidv4 } = require("uuid");
+
+const s3 = new AWS.S3({
+  endpoint: "https://s3.eu-north-1.amazonaws.com",
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID.trim(),
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY.trim(),
+  region: "eu-north-1",
+});
 
 const uploadDocsApi = async (req, res) => {
-  console.log("req.file", req.file);
   try {
-    const { title, description, category } = req.body;
+    if (!req.file) {
+      return res.status(400).send("No file uploaded.");
+    }
+    console.log("req.file:", req.file);
 
-    const DocsData = await Document.create({
-      title,
-      description,
-      category,
-      fileUrl: req?.file?.path,
+    const params = {
+      Bucket: process.env.BUCKET_NAME,
+      Key: `${uuidv4()}.pdf`,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype,
+    };
+
+    const uploadedImage = await s3.upload(params).promise();
+
+    const document = await Document.create({
+      fileUrl: uploadedImage.Location,
     });
 
-    const docsData = await getDocsData(DocsData);
-    console.log("docsData 22", docsData);
+    const docsData = getDocsData(document);
+
     res.status(200).json({
       status: "success",
-      data: {
-        docs: docsData,
-      },
-      message: "Docs Uploaded Sucessfully,",
+      data: docsData,
+      message: "Document Uploaded Successfully",
     });
   } catch (error) {
-    console.log("Error in signup", error);
-    res.status(400).json({ status: "error", message: error.message });
+    console.error(error);
+    res.status(500).send("Internal Server Error");
   }
 };
 
@@ -373,12 +388,13 @@ module.exports = {
 };
 
 const getDocsData = async (docs) => {
+  console.log("docs", docs)
   return {
     title: docs?.title,
     description: docs?.description,
     category: docs?.category,
     tags: docs?.tags,
-    fileUrl: fileFullPath(docs?.fileUrl),
+    fileUrl: docs.fileUrl
   };
 };
 

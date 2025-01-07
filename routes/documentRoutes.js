@@ -12,11 +12,18 @@ const {
   addDocsLabelApi,
   addDocsTagsApi,
 } = require("../controllers/DocumentController");
+// const upload = require("../middlewares/uploadDocs");
 
 const router = require("express").Router();
-const upload = require("../middlewares/uploadDocs");
+// const { upload }= require("../middlewares/uploadDocs");
+
+const multer = require('multer');
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
 // {Document Part}
-router.post("/uploadDocsApi", upload("Docs").single("file"), uploadDocsApi);
+router.post("/uploadDocsApi", upload.single('file'), uploadDocsApi);
 router.get("/getAllDocsApi", getAllDocsApi);
 router.post("/addDocsLabelApi", addDocsLabelApi);
 router.post("/addDocsTagsApi", addDocsTagsApi);
