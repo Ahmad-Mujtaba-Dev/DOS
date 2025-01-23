@@ -15,32 +15,103 @@ const s3 = new AWS.S3({
   region: "eu-north-1",
 });
 
+// const uploadDocsApi = async (req, res) => {
+//   try {
+//     if (!req.file) {
+//       return res.status(400).send("No file uploaded.");
+//     }
+//     console.log("req.file:", req.file);
+
+//     const params = {
+//       Bucket: process.env.BUCKET_NAME,
+//       Key: `${uuidv4()}.pdf`,
+//       Body: req.file.buffer,
+//       ContentType: req.file.mimetype,
+//     };
+
+//     const uploadedImage = await s3.upload(params).promise();
+
+//     const document = await Document.create({
+//       fileUrl: uploadedImage.Location,
+//     });
+
+//     const documents = await Promise.all(uploadPromises);
+
+//     const docsData = getDocsData(document);
+
+//     res.status(200).json({
+//       status: "success",
+//       data: docsData,
+//       message: "Document Uploaded Successfully",
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).send("Internal Server Error");
+//   }
+// };
+
 const uploadDocsApi = async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).send("No file uploaded.");
+    const { id, folderName } = req.body;
+    console.log("id", id);
+    console.log("folderName", folderName);
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).send("No files uploaded.");
     }
-    console.log("req.file:", req.file);
 
-    const params = {
-      Bucket: process.env.BUCKET_NAME,
-      Key: `${uuidv4()}.pdf`,
-      Body: req.file.buffer,
-      ContentType: req.file.mimetype,
-    };
+    const user = await User.findById(id);
 
-    const uploadedImage = await s3.upload(params).promise();
+    if (!user) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "user not found" });
+    }
+    
+    let category = await Catagory.findOne({ categoryName: folderName });
+    if (!category) {
+      category = await Catagory.create({ 
+        categoryName: folderName 
+      });
+    }
 
-    const document = await Document.create({
-      fileUrl: uploadedImage.Location,
+    const uploadPromises = req.files.map(async (file) => {
+      const params = {
+        Bucket: process.env.BUCKET_NAME,
+        Key: `users/${id}/${uuidv4()}.pdf`,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+        Metadata: {
+          userId: id.toString(), 
+        },
+      };
+
+      const uploadedImage = await s3.upload(params).promise();
+
+      return Document.create({
+        userId: id,
+        fileUrl: uploadedImage.Location,
+        categoryId: category._id,
+      });
     });
 
-    const docsData = getDocsData(document);
+    const documents = await Promise.all(uploadPromises);
+    console.log("documents 97", documents)
+
+    const documentsData = [];
+
+    await Promise.all(
+      documents.map(async (doc) => {
+        const mydocsData = await getDocsData(doc);
+        documentsData.push(mydocsData);
+      })
+    );
+    console.log("documents Data 97", documentsData)
 
     res.status(200).json({
       status: "success",
-      data: docsData,
-      message: "Document Uploaded Successfully",
+      data: documentsData,
+      message: "Documents Uploaded Successfully",
     });
   } catch (error) {
     console.error(error);
@@ -50,11 +121,11 @@ const uploadDocsApi = async (req, res) => {
 
 const getAllDocsApi = async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.params;
+    // const { page = 1, limit = 10 } = req.params;
     const documents = await Document.find()
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit))
-      .sort({ createdAt: -1 });
+      // .skip((page - 1) * limit)
+      // .limit(parseInt(limit))
+      // .sort({ createdAt: -1 });
 
     res.status(200).json({ documents });
   } catch (error) {
@@ -66,7 +137,6 @@ const addDocsLabelApi = async (req, res) => {
   try {
     const { docsName, docsId } = req.body;
     const docs = await Document.findOne({ _id: docsId });
-    console.log("docs", docs);
 
     await Document.findOneAndUpdate(
       { _id: docsId },
@@ -388,13 +458,16 @@ module.exports = {
 };
 
 const getDocsData = async (docs) => {
-  console.log("docs", docs)
+  console.log("docs 459", docs)
+
+  const categoriesData = await Catagory.findById(docs.categoryId) 
+  console.log("categoriesData", categoriesData)
+
   return {
-    title: docs?.title,
-    description: docs?.description,
-    category: docs?.category,
-    tags: docs?.tags,
-    fileUrl: docs.fileUrl
+    userId: docs?.userId,
+    fileUrl: docs.fileUrl,
+    category: categoriesData ? categoriesData.categoryName : null,
+    categoryId: docs?.categoryId
   };
 };
 

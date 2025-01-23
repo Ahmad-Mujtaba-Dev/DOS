@@ -23,7 +23,7 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 // {Document Part}
-router.post("/uploadDocsApi", upload.single('file'), uploadDocsApi);
+router.post("/uploadDocsApi", upload.array('file'), uploadDocsApi);
 router.get("/getAllDocsApi", getAllDocsApi);
 router.post("/addDocsLabelApi", addDocsLabelApi);
 router.post("/addDocsTagsApi", addDocsTagsApi);

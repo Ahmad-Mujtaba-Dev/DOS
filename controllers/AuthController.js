@@ -10,30 +10,23 @@ const validator = require("validator");
 const OtpModel = require("../models/OtpModel");
 const Invitation = require("../models/InvitationModel");
 const Admin = require("../models/AdminModel");
+const HealthProviderModel = require("../models/HealthProviderModel");
 require("dotenv").config();
 
 const registerApi = async (req, res) => {
+  console.log("req.body", req.body)
   try {
     const {
       firstName,
       lastName,
       email,
-      phone,
       password,
       confirmPassword,
       role,
-      providerName,
-      providerAddress,
-      providerPhone,
     } = req.body;
 
     if (
-      !email ||
-      !firstName ||
-      !lastName ||
-      !phone ||
-      !password ||
-      !confirmPassword
+      !email
     ) {
       return res
         .status(400)
@@ -44,13 +37,6 @@ const registerApi = async (req, res) => {
       return res
         .status(400)
         .json({ status: "error", message: "Invalid email" });
-    }
-
-    const { code, number } = phone;
-    if (!code || !number) {
-      return res
-        .status(400)
-        .json({ status: "error", message: "Phone object is incomplete" });
     }
 
     if (password.length < 8) {
@@ -73,57 +59,13 @@ const registerApi = async (req, res) => {
         .json({ status: "error", message: "Email already in use" });
     }
 
-    const isPhoneExist = await User.findOne({ phone });
-    if (isPhoneExist) {
-      return res
-        .status(400)
-        .json({ status: "error", message: "Phone number already in use" });
-    }
-
     const user = await User.create({
       firstName,
       lastName,
       email,
-      phone: { code, number },
       password,
       role,
     });
-
-    if (user.role === "patient") {
-      if (!providerName || !providerAddress || !providerPhone) {
-        return res.status(400).json({
-          status: "error",
-          message: "Health provider details are required",
-        });
-      }
-    }
-
-    if (user.role === "patient") {
-      const healthProvider = await HealthProviderModal.create({
-        userId: user._id,
-        providerName,
-        providerAddress,
-        phone: providerPhone,
-        active: true,
-        verifyAt: new Date(),
-      });
-
-      console.log("Health provider created", healthProvider);
-    }
-
-    const otp = await createOTPFun(user.email);
-    const mailSend = await sendEmail({
-      email: user.email,
-      subject: "OTP for Signup",
-      text: `Your OTP for signup is ${otp}`,
-      html: `<html><body><p>Your OTP is ${otp}</p></body></html>`,
-    });
-
-    if (!mailSend) {
-      return res
-        .status(400)
-        .json({ status: "error", message: "Error in sending OTP email" });
-    }
 
     const userData = await getUserData(user);
     res.status(201).json({
@@ -132,13 +74,77 @@ const registerApi = async (req, res) => {
         user: userData,
       },
       message:
-        "please check your email for OTP verification",
+      "User Details Enter Sucessfully",
     });
   } catch (error) {
     console.log("Error in signup", error);
     res.status(400).json({ status: "error", message: error.message });
   }
 };
+
+const healthProviderApi = async (req, res) => {
+  const { userId } = req.body
+  try {
+    const {
+      providerName,
+      providerAddress,
+      providerPhone
+    } = req.body;
+
+    const isProviderName = await HealthProviderModel.findOne({ providerName });
+    if (isProviderName) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Provider Name already in use" });
+    }
+
+    const isProviderAddress = await HealthProviderModel.findOne({ providerAddress });
+    if (isProviderAddress) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Provider Address already in use" });
+    }
+
+    const user = await User.findOne({_id:userId})
+    console.log("user", user)
+
+      const healthProvider = await HealthProviderModal.create({
+        userId:user._id,
+        providerName,
+        providerAddress,
+        phone: providerPhone,
+        active: true,
+        verifyAt: new Date(),
+      })
+
+      const otp = await createOTPFun(user.email);
+      const mailSend = await sendEmail({
+        email: user.email,
+        subject: "OTP for Signup",
+        text: `Your OTP for signup is ${otp}`,
+        html: `<html><body><p>Your OTP is ${otp}</p></body></html>`,
+      });
+  
+      if (!mailSend) {
+        return res
+          .status(400)
+          .json({ status: "error", message: "Error in sending OTP email" });
+      }
+
+    res.status(201).json({
+      status: "success",
+      data: {
+        user: healthProvider,
+      },
+      message:
+        "Health Provider Added Sucessfully, check your email, Enter otp to verify your account.",
+    });
+
+} catch (error) {
+    console.log("Error in signup", error);
+    res.status(400).json({ status: "error", message: error.message });
+  }
+}
 
 const verifyOtpApi = async (req, res, next) => {
   try {
@@ -337,6 +343,35 @@ const loginApi = async (req, res) => {
   } catch (error) {
     console.log("Error in login", error);
     res.status(400).json({ status: "error", message: error.message });
+  }
+};
+
+const checkTokenIsValidApi = async (req, res, next) => {
+  try {
+    const { id } = req.user;
+    console.log("id", id);
+
+    // Fetch the user by ID
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(400).json({ status: "error", message: "Invalid user" });
+    }
+
+    const token = createSecretToken({ id: user._id });
+
+    const userData = await getUserData(user);
+
+    res.status(201).json({
+      status: "success",
+      data: {
+        token,
+        user: userData,
+      },
+      message: "Login successful",
+    });
+  } catch (error) {
+    console.error("Error checking token validity:", error);
+    res.status(500).json({ status: "error", message: "Internal server error" });
   }
 };
 
@@ -938,6 +973,7 @@ module.exports = {
   logoutApi,
   getAllUsersApi,
   getUserbyId,
+  healthProviderApi,
   UpdateUserApi,
   ActivateUserAccount,
   SentInvitationAdminApi,
@@ -945,6 +981,7 @@ module.exports = {
   GetAllAdminsApi,
   deleteAdminApi,
   changeAdminPasswordApi,
+  checkTokenIsValidApi,
 };
 
 const getAdminsData = async (user) => {

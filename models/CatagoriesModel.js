@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const CatagorySchema = new mongoose.Schema({
   categoryName: {
     type: String,
+    required: true,
     trim: true,
   },
   createdAt: {
