@@ -375,6 +375,34 @@ const checkTokenIsValidApi = async (req, res, next) => {
   }
 };
 
+const UserAutoLoginApi = async (req, res, next) => {
+  try {
+    const { userId } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(400).json({ status: "error", message: "Invalid user" });
+    }
+
+    const token = createSecretToken({ id: user._id });
+
+    const userData = await getUserData(user);
+
+    res.status(201).json({
+      status: "success",
+      data: {
+        token,
+        user: userData,
+      },
+      message: "Login successful",
+    });
+  } catch (error) {
+    console.error("Error checking token validity:", error);
+    res.status(500).json({ status: "error", message: "Internal server error" });
+  }
+};
+
+
 const forgetPasswordApi = async (req, res, next) => {
   try {
     const { email } = req.body;
@@ -982,6 +1010,7 @@ module.exports = {
   deleteAdminApi,
   changeAdminPasswordApi,
   checkTokenIsValidApi,
+  UserAutoLoginApi,
 };
 
 const getAdminsData = async (user) => {

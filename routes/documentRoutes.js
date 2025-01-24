@@ -16,6 +16,7 @@ const {
 
 const router = require("express").Router();
 // const { upload }= require("../middlewares/uploadDocs");
+const auth = require("../middlewares/auth");
 
 const multer = require('multer');
 
@@ -24,7 +25,7 @@ const upload = multer({ storage: storage });
 
 // {Document Part}
 router.post("/uploadDocsApi", upload.array('file'), uploadDocsApi);
-router.get("/getAllDocsApi", getAllDocsApi);
+router.get("/getAllDocsApi", auth , getAllDocsApi);
 router.post("/addDocsLabelApi", addDocsLabelApi);
 router.post("/addDocsTagsApi", addDocsTagsApi);
 router.post("/downloadDocsApi", DownloadDocApi);

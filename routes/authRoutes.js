@@ -15,6 +15,8 @@ const {
   GetAllAdminsApi,
   deleteAdminApi,
   changeAdminPasswordApi,
+  checkTokenIsValidApi,
+  UserAutoLoginApi
 } = require("../controllers/AuthController.js");
 const auth = require("../middlewares/auth");
 const router = require("express").Router();
@@ -26,6 +28,8 @@ router.post("/auth/register-user-api", registerApi);
 router.post("/auth/forget-password", forgetPasswordApi);
 router.post("/auth/reset-password", resetPasswordApi);
 router.post("/change-password", auth, changePasswordApi);
+router.get("/auth/token-is-valid", auth, checkTokenIsValidApi);
+router.post("/user-auto-login-api", auth, UserAutoLoginApi);
 router.get("/auth/get-all-users", auth , getAllUsersApi)
 router.get('/auth/get-user-details', getUserbyId)
 router.get('/auth/update-user-details', UpdateUserApi)

@@ -53,8 +53,6 @@ const s3 = new AWS.S3({
 const uploadDocsApi = async (req, res) => {
   try {
     const { id, folderName } = req.body;
-    console.log("id", id);
-    console.log("folderName", folderName);
 
     if (!req.files || req.files.length === 0) {
       return res.status(400).send("No files uploaded.");
@@ -89,14 +87,13 @@ const uploadDocsApi = async (req, res) => {
       const uploadedImage = await s3.upload(params).promise();
 
       return Document.create({
-        userId: id,
+        patientId: id,
         fileUrl: uploadedImage.Location,
         categoryId: category._id,
       });
     });
 
     const documents = await Promise.all(uploadPromises);
-    console.log("documents 97", documents)
 
     const documentsData = [];
 
@@ -106,7 +103,6 @@ const uploadDocsApi = async (req, res) => {
         documentsData.push(mydocsData);
       })
     );
-    console.log("documents Data 97", documentsData)
 
     res.status(200).json({
       status: "success",
@@ -119,19 +115,36 @@ const uploadDocsApi = async (req, res) => {
   }
 };
 
-const getAllDocsApi = async (req, res) => {
+const getallPatient = async (req, res, next) => {
   try {
-    // const { page = 1, limit = 10 } = req.params;
-    const documents = await Document.find()
-      // .skip((page - 1) * limit)
-      // .limit(parseInt(limit))
-      // .sort({ createdAt: -1 });
+    const patient = await User.find({ role: "patient" });
 
-    res.status(200).json({ documents });
+    if (!patient || patient.length === 0) {
+      return res.status(404).json({ message: "No patients found" });
+    }
+
+    const patients = [];
+
+    await Promise.all(
+      patient.map(async (user) => {
+        const myPatientData = await getPatientData(user);
+        patients.push(myPatientData);
+      })
+    );
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        patients,
+      },
+      message: "Patients fetched successfully",
+    });
   } catch (error) {
-    res.status(500).json({ message: "Failed fetch documents", error });
+    console.log("Error in get all Patients", error);
+    res.status(400).json({ status: "error", message: error.message });
   }
 };
+
 
 const addDocsLabelApi = async (req, res) => {
   try {
@@ -269,29 +282,46 @@ const EditDocsLabelApi = async (req, res) => {
   }
 };
 
-const getallPatient = async (req, res, next) => {
+const getAllDocsApi = async (req, res, next) => {
   try {
-    const patient = await User.find({ role: "patient" });
-
-    if (!patient || patient.length === 0) {
-      return res.status(404).json({ message: "No patients found" });
+ if (req.user === undefined) {
+      return res.status(400).json({ status: "error", message: "Invalid user" });
+    }
+    const { id } = req.user;
+    if (!id) {
+      return res.status(400).json({ status: "error", message: "Invalid id" });
+    }
+    const myUser = await User.findById(id);
+    if (!myUser) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "User not found" });
     }
 
-    const patients = [];
+    const docs = await Document.find({userId:id});
+    console.log("docs 302", docs)
+
+    if (!docs  || docs.length == 0) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "No Docs Found " });
+    }
+
+    const docsData = [];
 
     await Promise.all(
-      patient.map(async (user) => {
-        const myPatientData = await getPatientData(user);
-        patients.push(myPatientData);
+      docs.map(async (doc) => {
+        const myDocData = await getDocsData(doc);
+        docsData.push(myDocData);
       })
     );
 
     res.status(200).json({
       status: "success",
       data: {
-        patients,
+        docsData,
       },
-      message: "Patients fetched successfully",
+      message: "Docs fetched successfully",
     });
   } catch (error) {
     console.log("Error in get all Patients", error);
@@ -458,13 +488,11 @@ module.exports = {
 };
 
 const getDocsData = async (docs) => {
-  console.log("docs 459", docs)
 
   const categoriesData = await Catagory.findById(docs.categoryId) 
-  console.log("categoriesData", categoriesData)
 
   return {
-    userId: docs?.userId,
+    userId: docs?.patientId,
     fileUrl: docs.fileUrl,
     category: categoriesData ? categoriesData.categoryName : null,
     categoryId: docs?.categoryId
