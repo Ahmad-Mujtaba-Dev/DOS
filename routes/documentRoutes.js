@@ -29,7 +29,7 @@ router.get("/getAllDocsApi", auth , getAllDocsApi);
 router.post("/addDocsLabelApi", addDocsLabelApi);
 router.post("/addDocsTagsApi", addDocsTagsApi);
 router.post("/downloadDocsApi", DownloadDocApi);
-router.delete("/deleteDocsApi", DeleteDocsApi);
+router.post("/deleteDocsApi", DeleteDocsApi);
 router.post("/editDocsLabelApi", EditDocsLabelApi);
 router.get("/get-all-patient-api", getallPatient);
 router.post("/assign-docs-to-patient", AssignDocstoPatientApi);
@@ -37,5 +37,8 @@ router.post("/assign-docs-to-patient", AssignDocstoPatientApi);
 router.post("/add-category-api", AddCategoriesApi);
 router.get("/get-all-categories", getallCategories);
 router.post("/categorize-docs-api" , CategorizeDocsApi);
+
+// {Document Summeries}
+// router.post("/document-Summeries", upload.single('file'), uploadDocsSummariesApi);
 
 module.exports = router;

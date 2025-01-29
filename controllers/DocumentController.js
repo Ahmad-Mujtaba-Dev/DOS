@@ -15,42 +15,8 @@ const s3 = new AWS.S3({
   region: "eu-north-1",
 });
 
-// const uploadDocsApi = async (req, res) => {
-//   try {
-//     if (!req.file) {
-//       return res.status(400).send("No file uploaded.");
-//     }
-//     console.log("req.file:", req.file);
-
-//     const params = {
-//       Bucket: process.env.BUCKET_NAME,
-//       Key: `${uuidv4()}.pdf`,
-//       Body: req.file.buffer,
-//       ContentType: req.file.mimetype,
-//     };
-
-//     const uploadedImage = await s3.upload(params).promise();
-
-//     const document = await Document.create({
-//       fileUrl: uploadedImage.Location,
-//     });
-
-//     const documents = await Promise.all(uploadPromises);
-
-//     const docsData = getDocsData(document);
-
-//     res.status(200).json({
-//       status: "success",
-//       data: docsData,
-//       message: "Document Uploaded Successfully",
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).send("Internal Server Error");
-//   }
-// };
-
 const uploadDocsApi = async (req, res) => {
+  console.log("files --->", req.files);
   try {
     const { id, folderName } = req.body;
 
@@ -65,11 +31,11 @@ const uploadDocsApi = async (req, res) => {
         .status(400)
         .json({ status: "error", message: "user not found" });
     }
-    
+
     let category = await Catagory.findOne({ categoryName: folderName });
     if (!category) {
-      category = await Catagory.create({ 
-        categoryName: folderName 
+      category = await Catagory.create({
+        categoryName: folderName,
       });
     }
 
@@ -80,7 +46,7 @@ const uploadDocsApi = async (req, res) => {
         Body: file.buffer,
         ContentType: file.mimetype,
         Metadata: {
-          userId: id.toString(), 
+          userId: id.toString(),
         },
       };
 
@@ -115,6 +81,55 @@ const uploadDocsApi = async (req, res) => {
   }
 };
 
+// const uploadDocsSummariesApi = async (req, res) => {
+//   console.log("req", req.file);
+//   try {
+//     const fileObject = {
+//       fieldname: req.file.fieldname,
+//       originalname: req.file.originalname,
+//       encoding: req.file.encoding,
+//       mimetype: req.file.mimetype,
+//       buffer: req.file.buffer.toString("base64"),
+//       size: req.file.size,
+//     };
+
+//     // const filePath = path.join(__dirname, "uploadedFileDetails.txt");
+
+//     //   const fileContent = `
+//     //  {
+//     //      "fieldname": "${fileObject.fieldname}",
+//     //      "originalname": "${fileObject.originalname}",
+//     //      "encoding": "${fileObject.encoding}",
+//     //      "mimetype": "${fileObject.mimetype}",
+//     //      "buffer": "${fileObject.buffer}",
+//     //      "size": ${fileObject.size}
+//     //  }`;
+
+//     // fs.writeFileSync(filePath, fileContent, "utf8");
+
+//     // console.log(`File details saved to ${filePath}`);
+
+//     const analyzeResponse = await axios.post(
+//       "https://62d7-173-208-156-111.ngrok-free.app/process_file/",
+//       fileObject,
+//       { headers: { "Content-Type": "application/json" } }
+//     );
+
+//     console.log("analyzeResponse at line 47", analyzeResponse);
+
+//     const extractedData = analyzeResponse.data;
+
+//     return res.status(200).json({
+//       status: "success",
+//       message: "File analysis successful",
+//       data: extractedData,
+//     });
+//   } catch (error) {
+//     console.error("Error in uploadDocsSummariesApi:", error.message);
+//     res.status(500).json({ message: "Failed to Generate Summaries", error });
+//   }
+// };
+
 const getallPatient = async (req, res, next) => {
   try {
     const patient = await User.find({ role: "patient" });
@@ -144,7 +159,6 @@ const getallPatient = async (req, res, next) => {
     res.status(400).json({ status: "error", message: error.message });
   }
 };
-
 
 const addDocsLabelApi = async (req, res) => {
   try {
@@ -243,9 +257,6 @@ const DeleteDocsApi = async (req, res) => {
       return res.status(404).json({ message: "Document not found" });
     }
 
-    const filePath = path.join(document.fileUrl);
-    fs.unlinkSync(filePath);
-
     await document.deleteOne();
     res.status(200).json({ message: "Document deleted successfully" });
   } catch (error) {
@@ -284,7 +295,7 @@ const EditDocsLabelApi = async (req, res) => {
 
 const getAllDocsApi = async (req, res, next) => {
   try {
- if (req.user === undefined) {
+    if (req.user === undefined) {
       return res.status(400).json({ status: "error", message: "Invalid user" });
     }
     const { id } = req.user;
@@ -298,10 +309,10 @@ const getAllDocsApi = async (req, res, next) => {
         .json({ status: "error", message: "User not found" });
     }
 
-    const docs = await Document.find({userId:id});
-    console.log("docs 302", docs)
+    const docs = await Document.find({ userId: id });
+    console.log("docs 302", docs);
 
-    if (!docs  || docs.length == 0) {
+    if (!docs || docs.length == 0) {
       return res
         .status(400)
         .json({ status: "error", message: "No Docs Found " });
@@ -485,17 +496,18 @@ module.exports = {
   getallPatient,
   getallCategories,
   CategorizeDocsApi,
+  // uploadDocsSummariesApi,
 };
 
 const getDocsData = async (docs) => {
-
-  const categoriesData = await Catagory.findById(docs.categoryId) 
+  const categoriesData = await Catagory.findById(docs.categoryId);
 
   return {
+    docsId: docs._id,
     userId: docs?.patientId,
     fileUrl: docs.fileUrl,
     category: categoriesData ? categoriesData.categoryName : null,
-    categoryId: docs?.categoryId
+    categoryId: docs?.categoryId,
   };
 };
 
