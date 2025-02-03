@@ -597,6 +597,7 @@ const getAllUsersApi = async (req, res, next) => {
 };
 
 const getUserbyId = async (req, res) => {
+  
   try {
     const { userId } = req.body;
 
@@ -622,6 +623,8 @@ const getUserbyId = async (req, res) => {
 };
 
 const UpdateUserApi = async (req, res, next) => {
+  console.log("clall",req.body);
+  
   try {
     const { userId } = req.body;
     if (!validator.isMongoId(userId)) {
@@ -634,12 +637,12 @@ const UpdateUserApi = async (req, res, next) => {
         .status(400)
         .json({ status: "error", message: "User not found" });
     }
-    if (myUser.role !== "super-admin") {
-      return res.status(400).json({
-        status: "error",
-        message: "You are not authorized to access users",
-      });
-    }
+    // if (myUser.role !== "super-admin") {
+    //   return res.status(400).json({
+    //     status: "error",
+    //     message: "You are not authorized to access users",
+    //   });
+    // }
 
     const existingUser = await User.findById(userId);
     if (!existingUser) {

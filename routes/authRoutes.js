@@ -31,8 +31,8 @@ router.post("/change-password", auth, changePasswordApi);
 router.get("/auth/token-is-valid", auth, checkTokenIsValidApi);
 router.post("/user-auto-login-api", auth, UserAutoLoginApi);
 router.get("/auth/get-all-users", auth , getAllUsersApi)
-router.get('/auth/get-user-details', getUserbyId)
-router.get('/auth/update-user-details', UpdateUserApi)
+router.post('/auth/get-user-details', getUserbyId)
+router.post('/auth/update-user-details', UpdateUserApi)
 router.post('/auth/account-status-change', ActivateUserAccount)
 router.post('/auth/send-admin-request-api', SentInvitationAdminApi)
 router.post('/auth/create-new-admin-api', createNewAdminApi)
