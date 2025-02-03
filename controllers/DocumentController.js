@@ -40,9 +40,11 @@ const uploadDocsApi = async (req, res) => {
     }
 
     const uploadPromises = req.files.map(async (file) => {
+      const fileName = file.originalname;
+      console.log("fileName", fileName);
       const params = {
         Bucket: process.env.BUCKET_NAME,
-        Key: `users/${id}/${uuidv4()}.pdf`,
+        Key: `users/${id}/${fileName}`,
         Body: file.buffer,
         ContentType: file.mimetype,
         Metadata: {
@@ -252,6 +254,7 @@ const DeleteDocsApi = async (req, res) => {
   try {
     const { docsId } = req.body;
     const document = await Document.findById({ _id: docsId });
+    console.log("document", document);
 
     if (!document) {
       return res.status(404).json({ message: "Document not found" });
@@ -483,6 +486,86 @@ const CategorizeDocsApi = async (req, res) => {
   }
 };
 
+const updateDocsCategoryApi = async (req, res) => {
+  try {
+    const { docsId, categoryName, categoryId } = req.body;
+
+    if (!docsId) {
+      return res.status(400).json({
+        status: "error",
+        message: "Document ID is required"
+      });
+    }
+
+    // Find the document first
+    const document = await Document.findById(docsId);
+    if (!document) {
+      return res.status(404).json({
+        status: "error",
+        message: "Document not found"
+      });
+    }
+
+    let category;
+    // If categoryId is provided, use it directly
+    if (categoryId) {
+      category = await Catagory.findById(categoryId);
+      if (!category) {
+        return res.status(404).json({
+          status: "error",
+          message: "Category not found with provided ID"
+        });
+      }
+    } 
+    // If categoryName is provided, find or create category
+    else if (categoryName) {
+      category = await Catagory.findOne({ categoryName });
+      if (!category) {
+        category = await Catagory.create({ categoryName });
+      }
+    } else {
+      return res.status(400).json({
+        status: "error",
+        message: "Either categoryId or categoryName must be provided"
+      });
+    }
+
+    // Update the document with new category
+    document.categoryId = category._id;
+    await document.save();
+
+    // Get updated document data with populated fields
+    const updatedDoc = await Document.findById(docsId)
+      .populate('categoryId')
+      .populate('patientId', 'firstName lastName email');
+
+    const updatedDocData = {
+      docsId: updatedDoc._id,
+      userId: updatedDoc.patientId?._id,
+      userName: updatedDoc.patientId ? `${updatedDoc.patientId.firstName} ${updatedDoc.patientId.lastName}` : null,
+      fileUrl: updatedDoc.fileUrl,
+      category: category.categoryName,
+      categoryId: category._id,
+      size: updatedDoc.size,
+      createdAt: updatedDoc.createdAt,
+      title: updatedDoc.title || updatedDoc.originalname
+    };
+
+    res.status(200).json({
+      status: "success",
+      data: updatedDocData,
+      message: "Document category updated successfully"
+    });
+  } catch (error) {
+    console.error("Error updating document category:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Failed to update document category",
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   uploadDocsApi,
   getAllDocsApi,
@@ -496,6 +579,7 @@ module.exports = {
   getallPatient,
   getallCategories,
   CategorizeDocsApi,
+  updateDocsCategoryApi,
   // uploadDocsSummariesApi,
 };
 
@@ -508,6 +592,9 @@ const getDocsData = async (docs) => {
     fileUrl: docs.fileUrl,
     category: categoriesData ? categoriesData.categoryName : null,
     categoryId: docs?.categoryId,
+    size: docs.size,
+    createdAt: docs.createdAt,
+    title: docs.title || docs.originalname
   };
 };
 

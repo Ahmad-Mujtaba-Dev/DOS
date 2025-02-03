@@ -11,6 +11,7 @@ const {
   getallCategories,
   addDocsLabelApi,
   addDocsTagsApi,
+  updateDocsCategoryApi,
 } = require("../controllers/DocumentController");
 // const upload = require("../middlewares/uploadDocs");
 
@@ -31,6 +32,7 @@ router.post("/addDocsTagsApi", addDocsTagsApi);
 router.post("/downloadDocsApi", DownloadDocApi);
 router.post("/deleteDocsApi", DeleteDocsApi);
 router.post("/editDocsLabelApi", EditDocsLabelApi);
+router.post("/update-docs-category", updateDocsCategoryApi);
 router.get("/get-all-patient-api", getallPatient);
 router.post("/assign-docs-to-patient", AssignDocstoPatientApi);
 // {Categories Part}
