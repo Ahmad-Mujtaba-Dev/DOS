@@ -41,10 +41,6 @@ app.options("*", (req, res) => {
   res.sendStatus(200);
 });
 
-app.use(cors(corsOptions));
-
-app.options("*", cors(corsOptions));
-
 console.log(" process.env.SESSION_SECRET", process.env.SESSION_SECRET);
 app.use(
   session({
