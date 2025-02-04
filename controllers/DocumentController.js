@@ -1,4 +1,4 @@
-const Catagory = require("../models/catagoriesModel");
+const Catagory = require("../models/CatagoriesModel");
 const Document = require("../models/DocumentModel");
 const HealthProviderModal = require("../models/HealthProviderModel");
 const User = require("../models/UserModel");
