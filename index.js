@@ -24,24 +24,7 @@ app.use("/uploads", express.static("uploads"));
 app.use("/file", express.static("file"));
 const passport = require("passport");
 
-// CORS options
-// Allow all origins
-app.use(cors({ 
-  origin: "*",
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
-
-app.options("*", (req, res) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.sendStatus(200);
-});
-
-console.log(" process.env.SESSION_SECRET", process.env.SESSION_SECRET);
+app.use(cors());
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
