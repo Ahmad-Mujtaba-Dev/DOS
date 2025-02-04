@@ -4,7 +4,7 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
 const session = require("express-session");
-// const passport = require("./util/passport-config"); 
+// const passport = require("./util/passport-config");
 
 // Initialize app
 const app = express();
@@ -26,19 +26,23 @@ const passport = require("passport");
 
 // CORS options
 const corsOptions = {
-  origin: "*",
-  credentials: true,
-  optionSuccessStatus: 200,
+  origin: process.env.CLIENT_URL || "http://localhost:3000", // Set allowed origin
+  credentials: true, // Allow cookies & Authorization headers
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Allowed methods
+  allowedHeaders: ["Content-Type", "Authorization"], // Allowed headers
 };
+
 app.use(cors(corsOptions));
-console.log(" process.env.SESSION_SECRET", process.env.SESSION_SECRET)
+
+app.use(cors(corsOptions));
+console.log(" process.env.SESSION_SECRET", process.env.SESSION_SECRET);
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false, 
+      secure: false,
       maxAge: 1000 * 60 * 60 * 24,
     },
   })
