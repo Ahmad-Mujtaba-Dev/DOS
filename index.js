@@ -25,12 +25,21 @@ app.use("/file", express.static("file"));
 const passport = require("passport");
 
 // CORS options
-const corsOptions = {
-  origin: process.env.CLIENT_URL || "http://localhost:3000", // Set allowed origin
-  credentials: true, // Allow cookies & Authorization headers
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Allowed methods
-  allowedHeaders: ["Content-Type", "Authorization"], // Allowed headers
-};
+// Allow all origins
+app.use(cors({ 
+  origin: "*",
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+app.options("*", (req, res) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.sendStatus(200);
+});
 
 app.use(cors(corsOptions));
 
