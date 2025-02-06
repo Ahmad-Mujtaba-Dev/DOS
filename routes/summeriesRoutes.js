@@ -1,22 +1,13 @@
-const {  saveDocumentSummeriesApi } = require("../controllers/SummeriesController");
 const router = require("express").Router();
+const { saveDocumentSummeriesApi } = require("../controllers/SummeriesController");
 const multer = require('multer');
-const path = require('path');
 
-// Simple storage configuration
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'upload')
-    },
-    filename: function (req, file, cb) {
-        cb(null, 'file-' + Date.now() + path.extname(file.originalname))
-    }
-});
-
+// Use memory storage instead of disk storage
+const storage = multer.memoryStorage();
 const upload = multer({ 
     storage: storage,
     limits: {
-        fileSize: 10 * 1024 * 1024 // 10MB
+        fileSize: 10 * 1024 * 1024 // 10MB limit
     }
 });
 

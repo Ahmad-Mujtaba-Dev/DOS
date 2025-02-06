@@ -1,12 +1,10 @@
-const Catagory = require("../models/catagoriesModel");
+const Catagory = require("../models/CatagoriesModel");
 const Document = require("../models/DocumentModel");
 const HealthProviderModal = require("../models/HealthProviderModel");
 const User = require("../models/UserModel");
-const fileFullPath = require("../util/fileFullPath");
 const fs = require("fs");
 const path = require("path");
 const AWS = require("aws-sdk");
-const { v4: uuidv4 } = require("uuid");
 
 const s3 = new AWS.S3({
   endpoint: "https://s3.eu-north-1.amazonaws.com",
@@ -18,7 +16,8 @@ const s3 = new AWS.S3({
 const uploadDocsApi = async (req, res) => {
   console.log("files --->", req.files);
   try {
-    const { id, folderName } = req.body;
+    console.log("req.body", req.body);
+    const { id, folderName, summary } = req.body;
 
     if (!req.files || req.files.length === 0) {
       return res.status(400).send("No files uploaded.");
@@ -58,6 +57,7 @@ const uploadDocsApi = async (req, res) => {
         patientId: id,
         fileUrl: uploadedImage.Location,
         categoryId: category._id,
+        summary: summary // Add summary field
       });
     });
 
@@ -73,7 +73,7 @@ const uploadDocsApi = async (req, res) => {
     );
 
     res.status(200).json({
-      status: "success",
+      status: "success", 
       data: documentsData,
       message: "Documents Uploaded Successfully",
     });
@@ -315,6 +315,7 @@ const getAllDocsApi = async (req, res, next) => {
     const docs = await Document.find({ userId: id });
     console.log("docs 302", docs);
 
+
     if (!docs || docs.length == 0) {
       return res
         .status(400)
@@ -331,7 +332,56 @@ const getAllDocsApi = async (req, res, next) => {
     );
 
     res.status(200).json({
-      status: "success",
+      status: "success", 
+      data: {
+        docsData,
+      },
+      message: "Docs fetched successfully",
+    });
+  } catch (error) {
+    console.log("Error in get all Patients", error);
+    res.status(400).json({ status: "error", message: error.message });
+  }
+};
+
+const getAllDocsForSummary = async (req, res, next) => {
+  try {
+    if (req.user === undefined) {
+      return res.status(400).json({ status: "error", message: "Invalid user" });
+    }
+    const { id } = req.user;
+    if (!id) {
+      return res.status(400).json({ status: "error", message: "Invalid id" });
+    }
+    const myUser = await User.findById(id);
+    if (!myUser) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "User not found" });
+    }
+
+    const docs = await Document.find({ userId: id ,summary: { $exists: true } });
+    console.log("docs 302", docs);
+
+
+
+    if (!docs || docs.length == 0) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "No Docs Found " });
+    }
+
+    const docsData = [];
+
+    await Promise.all(
+      docs.map(async (doc) => {
+        const myDocData = await getDocsData(doc);
+        docsData.push(myDocData);
+      })
+    );
+
+    res.status(200).json({
+      status: "success", 
       data: {
         docsData,
       },
@@ -569,12 +619,14 @@ const updateDocsCategoryApi = async (req, res) => {
 module.exports = {
   uploadDocsApi,
   getAllDocsApi,
+  getAllDocsForSummary,
   addDocsLabelApi,
   DownloadDocApi,
   DeleteDocsApi,
   EditDocsLabelApi,
   addDocsTagsApi,
   AssignDocstoPatientApi,
+
   AddCategoriesApi,
   getallPatient,
   getallCategories,
@@ -594,9 +646,11 @@ const getDocsData = async (docs) => {
     categoryId: docs?.categoryId,
     size: docs.size,
     createdAt: docs.createdAt,
-    title: docs.title || docs.originalname
+    title: docs.title || docs.originalname,
+    summary: docs.summary || "", 
   };
 };
+
 
 const getCategoryData = async (category) => {
   return {

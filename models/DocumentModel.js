@@ -18,6 +18,7 @@ const DocumentSchema = new mongoose.Schema({
     ref: "User",
   },
   tags: [{ type: String }],
+  summary: { type: String, default: "" },
   createdAt: { type: Date, default: Date.now },
 });
 
