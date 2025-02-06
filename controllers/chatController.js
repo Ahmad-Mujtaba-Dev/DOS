@@ -10,7 +10,7 @@ const chatController = {
                 return res.status(400).json({ error: 'Message is required' });
             }
 
-            const response = await axios.post('https://a330-173-208-156-111.ngrok-free.app/chat/', {
+            const response = await axios.post(process.env.ANROK_LINK + "chat/", {
                 message
             }, {
                 headers: {
