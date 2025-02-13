@@ -36,7 +36,7 @@ const saveDocumentSummeriesApi = async (req, res) => {
       },
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
-      timeout: 30000, // 30 second timeout
+      timeout: 50000, // 30 second timeout
       validateStatus: (status) => status < 500, // Handle only 500+ as errors
     };
 
@@ -114,7 +114,7 @@ const saveFileSummeriesApi = async (req, res) => {
       },
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
-      timeout: 30000, // 30 second timeout
+      timeout: 50000, // 30 second timeout
       validateStatus: (status) => status < 500, // Handle only 500+ as errors
     };
 
