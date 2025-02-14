@@ -11,7 +11,16 @@ const OtpModel = require("../models/OtpModel");
 const Invitation = require("../models/InvitationModel");
 const Admin = require("../models/AdminModel");
 const HealthProviderModel = require("../models/HealthProviderModel");
+const AWS = require("aws-sdk");
 require("dotenv").config();
+
+// Configure AWS S3
+const s3 = new AWS.S3({
+  endpoint: "https://s3.eu-north-1.amazonaws.com",
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID.trim(),
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY.trim(),
+  region: "eu-north-1",
+});
 
 const registerApi = async (req, res) => {
   console.log("req.body", req.body)
@@ -289,7 +298,7 @@ const loginApi = async (req, res) => {
       //               <div style="text-align: center;margin-top: 10px; padding-top: 20px;"> <img src="
       //               ${makelyLogo}"  width="160px" height="auto" alt="MakelyPro">
       //               </div>
-      //           <div><p style="text-align: center;font-weight: 500;font-size: 26px;font-family: 'Poppins', sans-serif;font-size: 18px;color: #000000;">Let’s Sign You In  </p></div>
+      //           <div><p style="text-align: center;font-weight: 500;font-size: 26px;font-family: 'Poppins', sans-serif;font-size: 18px;color: #000000;">Let's Sign You In  </p></div>
       //           <div class="hole-container" style="padding-left: 35px;padding-right:35px;font-family: 'Poppins',sans-serif;font-weight: 400;">
       //           <div style="color: #303030;font-size: 14px;font-family: 'Poppins', sans-serif;padding-top:13px;"><p>Dear User,</p></div>
 
@@ -299,7 +308,7 @@ const loginApi = async (req, res) => {
       //         <!-- <input type="tel" id="otp" name="otp" maxlength="6" style="border: none;outline: none;text-align: center;height: 70px;background-color: rgb(206, 246, 232);width: 100%;letter-spacing: 10px;font-size: 40px;font-weight: 600;" > -->
       //       </div>
       //       <div class="para-makely" style="padding-top: 13px; color: #303030;font-size: 14px;font-family: 'Poppins', sans-serif"><p>This OTP is Valid For 05 Mins</p></div>
-      //       <div ><p class="para-makely" style="color: #FF5151;font-size: 14px;font-family: 'Poppins', sans-serif;">“Please Don't Share Your OTP With Anyone For Your Account <br> Security.”</p></div>
+      //       <div ><p class="para-makely" style="color: #FF5151;font-size: 14px;font-family: 'Poppins', sans-serif;">"Please Don't Share Your OTP With Anyone For Your Account <br> Security."</p></div>
 
       //       <p class="para-makely" style="color: #303030 ;font-size: 14px;font-weight: 600;font-size: 18px;font-family: 'Poppins', sans-serif;padding-top:12px">Thank You</p>
       //       </div>
@@ -623,60 +632,105 @@ const getUserbyId = async (req, res) => {
 };
 
 const UpdateUserApi = async (req, res, next) => {
-  console.log("clall",req.body);
-  
   try {
     const { userId } = req.body;
     if (!validator.isMongoId(userId)) {
       return res.status(400).json({ status: "error", message: "Invalid id" });
     }
+
     const myUser = await User.findById(userId);
-
     if (!myUser) {
-      return res
-        .status(400)
-        .json({ status: "error", message: "User not found" });
+      return res.status(400).json({ status: "error", message: "User not found" });
     }
-    // if (myUser.role !== "super-admin") {
-    //   return res.status(400).json({
-    //     status: "error",
-    //     message: "You are not authorized to access users",
-    //   });
-    // }
 
-    const existingUser = await User.findById(userId);
-    if (!existingUser) {
-      return res.status(404).json({
-        status: "error",
-        message: "User not found",
-      });
+    let profilePictureUrl = myUser.profilePicture;
+
+    // Handle profile picture upload if present
+    if (req.file) {
+      try {
+        console.log("Uploading profile picture...");
+        console.log("File details:", {
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        });
+
+        const fileKey = `users/${userId}/profile/${Date.now()}-${req.file.originalname.replace(/\s+/g, '-')}`;
+        const params = {
+          Bucket: process.env.BUCKET_NAME,
+          Key: fileKey,
+          Body: req.file.buffer,
+          ContentType: req.file.mimetype,
+          ACL: 'public-read',
+          Metadata: {
+            userId: userId.toString(),
+          },
+        };
+
+        console.log("Uploading to S3...");
+        const uploadResult = await s3.upload(params).promise();
+        console.log("S3 upload result:", uploadResult);
+        profilePictureUrl = uploadResult.Location;
+
+        // Delete old profile picture if exists
+        if (myUser.profilePicture) {
+          try {
+            const oldKey = myUser.profilePicture.split('/').slice(-2).join('/');
+            console.log("Attempting to delete old profile picture:", oldKey);
+            await s3.deleteObject({
+              Bucket: process.env.BUCKET_NAME,
+              Key: `users/${oldKey}`
+            }).promise();
+            console.log("Old profile picture deleted successfully");
+          } catch (deleteError) {
+            console.error("Error deleting old profile picture:", deleteError);
+            // Continue execution even if delete fails
+          }
+        }
+      } catch (uploadError) {
+        console.error("Error uploading profile picture:", uploadError);
+        return res.status(500).json({
+          status: "error",
+          message: "Failed to upload profile picture",
+          error: uploadError.message
+        });
+      }
     }
+
+    console.log("Updating user with profile picture URL:", profilePictureUrl);
 
     const updatedUserFields = {
-      active: req.body.active,
-      firstName: req.body.firstName ?? existingUser.firstName,
-      lastName: req.body.lastName ?? existingUser.lastName,
-      email: req.body.email ?? existingUser.email,
-      phone: req.body.phone ?? existingUser.phone,
-      role: req.body.role ?? existingUser.role,
+      active: req.body.active ?? myUser.active,
+      firstName: req.body.firstName ?? myUser.firstName,
+      lastName: req.body.lastName ?? myUser.lastName,
+      email: req.body.email ?? myUser.email,
+      phone: req.body.phone ?? myUser.phone,
+      role: req.body.role ?? myUser.role,
+      profilePicture: profilePictureUrl
     };
 
-    const updatedBusinessData = await User.findOneAndUpdate(
+    const updatedUser = await User.findOneAndUpdate(
       { _id: userId },
       { $set: updatedUserFields },
       { new: true }
     );
 
-    const user = await getUserData(updatedBusinessData);
+    console.log("User updated successfully:", updatedUser);
+
+    const userData = await getUserData(updatedUser);
 
     res.status(200).json({
       status: "success",
-      user,
-      message: "Users Updated Successfully",
+      user: userData,
+      message: "User Updated Successfully",
     });
   } catch (error) {
-    console.log("Error in get all users", error);
-    res.status(400).json({ status: "error", message: error.message });
+    console.error("Error updating user:", error);
+    res.status(500).json({ 
+      status: "error", 
+      message: "Failed to update user",
+      error: error.message 
+    });
   }
 };
 
@@ -1056,6 +1110,7 @@ const getUserData = async (user) => {
     createdAt: user?.createdAt,
     verified: user?.verified,
     verifyAt: user?.verifyAt,
+    profilePicture: user?.profilePicture,
     healthProvider,
   };
 };

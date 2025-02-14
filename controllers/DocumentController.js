@@ -360,10 +360,7 @@ const getAllDocsForSummary = async (req, res, next) => {
         .json({ status: "error", message: "User not found" });
     }
 
-    const docs = await Document.find({ userId: id ,summary: { $exists: true } });
-    console.log("docs 302", docs);
-
-
+    const docs = await Document.find({ userId: id, summary: { $exists: true, $ne: "" } });
 
     if (!docs || docs.length == 0) {
       return res

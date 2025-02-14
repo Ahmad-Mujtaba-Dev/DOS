@@ -21,6 +21,26 @@ const {
 const auth = require("../middlewares/auth");
 const router = require("express").Router();
 const passport = require('passport'); 
+const multer = require('multer');
+
+// Configure multer for profile picture uploads
+const storage = multer.memoryStorage();
+const fileFilter = (req, file, cb) => {
+  // Accept images only
+  if (!file.originalname.match(/\.(jpg|JPG|jpeg|JPEG|png|PNG|gif|GIF)$/)) {
+    req.fileValidationError = 'Only image files are allowed!';
+    return cb(new Error('Only image files are allowed!'), false);
+  }
+  cb(null, true);
+};
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: fileFilter
+});
 
 router.post("/auth/verifyOtp", verifyOtpApi);
 router.post("/auth/login", loginApi);
@@ -30,15 +50,28 @@ router.post("/auth/reset-password", resetPasswordApi);
 router.post("/change-password", auth, changePasswordApi);
 router.get("/auth/token-is-valid", auth, checkTokenIsValidApi);
 router.post("/user-auto-login-api", auth, UserAutoLoginApi);
-router.get("/auth/get-all-users", auth , getAllUsersApi)
-router.post('/auth/get-user-details', getUserbyId)
-router.post('/auth/update-user-details', UpdateUserApi)
-router.post('/auth/account-status-change', ActivateUserAccount)
-router.post('/auth/send-admin-request-api', SentInvitationAdminApi)
-router.post('/auth/create-new-admin-api', createNewAdminApi)
-router.get('/auth/get-all-admins-api', GetAllAdminsApi)
+router.get("/auth/get-all-users", auth , getAllUsersApi);
+router.post('/auth/get-user-details', getUserbyId);
+router.post(
+  '/auth/update-user-details', 
+  upload.single('profilePicture'),
+  (req, res, next) => {
+    if (req.fileValidationError) {
+      return res.status(400).json({ 
+        status: "error",
+        message: req.fileValidationError 
+      });
+    }
+    next();
+  },
+  UpdateUserApi
+);
+router.post('/auth/account-status-change', ActivateUserAccount);
+router.post('/auth/send-admin-request-api', SentInvitationAdminApi);
+router.post('/auth/create-new-admin-api', createNewAdminApi);
+router.get('/auth/get-all-admins-api', GetAllAdminsApi);
 router.get("/admin/delete/:adminId", deleteAdminApi);
-router.post('/admin/reset-password', changeAdminPasswordApi)
+router.post('/admin/reset-password', changeAdminPasswordApi);
 
 router.get("/login/success", (req, res) => {
 	if (req.user) {
