@@ -283,7 +283,7 @@ const EditDocsLabelApi = async (req, res) => {
       { _id: docsId },
       { $set: { title } },
       { new: true }
-    );
+    ); 
     const myDocsData = await Document.findOne({ _id: docsId });
 
     res.status(200).json({

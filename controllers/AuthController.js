@@ -562,6 +562,7 @@ const logoutApi = async (req, res, next) => {
 
 const getAllUsersApi = async (req, res, next) => {
   try {
+    // Validate user and permissions
     if (req.user === undefined) {
       return res.status(400).json({ status: "error", message: "Invalid user" });
     }
@@ -571,9 +572,7 @@ const getAllUsersApi = async (req, res, next) => {
     }
     const myUser = await User.findById(id);
     if (!myUser) {
-      return res
-        .status(400)
-        .json({ status: "error", message: "User not found" });
+      return res.status(400).json({ status: "error", message: "User not found" });
     }
     if (myUser.role !== "super-admin") {
       return res.status(400).json({
@@ -581,27 +580,98 @@ const getAllUsersApi = async (req, res, next) => {
         message: "You are not authorized to access users",
       });
     }
-    const userData = await User.find({});
 
-    const users = [];
+    // Get sorting parameters
+    const sortBy = req.query.sortBy;
+    const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
+    const sortObj = {};
+    sortObj[sortBy] = sortOrder;
 
-    await Promise.all(
-      userData.map(async (user) => {
-        const myusersData = await getUserData(user);
-        users.push(myusersData);
-      })
-    );
+    // Get total count of users
+    const totalUsers = await User.countDocuments({});
+
+    let userData;
+    let responseData;
+
+    // Check if allUsers is true
+    if (req.query.allUsers) {
+      // Get all users with sorting only
+      userData = await User.find({}).sort(sortObj);
+
+      // Transform user data
+      const users = await Promise.all(
+        userData.map(user => getUserData(user))
+      );
+
+      responseData = {
+        users,
+        total: totalUsers
+      };
+    } else {
+      // Get pagination parameters
+      const page = parseInt(req.query.page);
+      const limit = parseInt(req.query.limit);
+      const skip = (page - 1) * limit;
+
+      // Calculate total pages
+      const totalPages = Math.ceil(totalUsers / limit);
+
+      // Get users with pagination and sorting
+      userData = await User.find({})
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limit);
+
+      // Transform user data
+      const users = await Promise.all(
+        userData.map(user => getUserData(user))
+      );
+
+      responseData = {
+        users,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalUsers,
+          limit,
+          hasPrevPage: page > 1,
+          hasNextPage: page < totalPages,
+        }
+      };
+    }
+
+    if (!userData || userData.length === 0) {
+      return res.status(200).json({
+        status: "success",
+        data: {
+          users: [],
+          ...(req.query.allUsers ? { total: 0 } : {
+            pagination: {
+              currentPage: req.query.allUsers ? 1 : page,
+              totalPages: 0,
+              totalUsers: 0,
+              limit: req.query.allUsers ? null : limit,
+              hasPrevPage: false,
+              hasNextPage: false,
+            }
+          })
+        },
+        message: "No users found"
+      });
+    }
 
     res.status(200).json({
       status: "success",
-      data: {
-        users,
-      },
+      data: responseData,
       message: "Users fetched successfully",
     });
   } catch (error) {
-    console.log("Error in get all users", error);
-    res.status(400).json({ status: "error", message: error.message });
+    console.error("Error in getAllUsersApi:", error);
+    res.status(500).json({ 
+      status: "error", 
+      message: "Failed to fetch users",
+      error: error.message 
+    });
   }
 };
 
