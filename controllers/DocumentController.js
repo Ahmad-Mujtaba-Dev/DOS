@@ -83,6 +83,66 @@ const uploadDocsApi = async (req, res) => {
   }
 };
 
+const assignDocstoPatientApi = async (req, res) => {
+  console.log("files --->", req.files);
+  try {
+    console.log("req.body", req.body);
+    const { patientId, categoryId } = req.body;
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).send("No files uploaded.");
+    }
+
+    const user = await User.findById(patientId);
+    if (!user) {
+      return res.status(404).json({ message: "Patient not found." });
+    }
+
+    const category = await Catagory.findById(categoryId);
+    if (!category) {
+      return res.status(404).json({ message: "Category not found." });
+    }
+
+    const uploadPromises = req.files.map(async (file) => {
+      const fileName = file.originalname;
+      console.log("fileName", fileName);
+      const params = {
+        Bucket: process.env.BUCKET_NAME,
+        Key: `users/${patientId}/${fileName}`,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+        Metadata: {
+          userId: patientId.toString(),
+        },
+      };
+
+      const uploadedImage = await s3.upload(params).promise();
+
+      return Document.create({
+        patientId: patientId,
+        fileUrl: uploadedImage.Location,
+        categoryId: category._id,
+        title: fileName, // Save file name as title
+      });
+    });
+
+    const documents = await Promise.all(uploadPromises);
+
+    const documentsData = await Promise.all(
+      documents.map(async (doc) => await getDocsData(doc))
+    );
+
+    res.status(200).json({
+      status: "success",
+      data: documentsData,
+      message: "Documents Assigned to Patient Successfully",
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Internal Server Error");
+  }
+};
+
 // const uploadDocsSummariesApi = async (req, res) => {
 //   console.log("req", req.file);
 //   try {
@@ -623,31 +683,33 @@ module.exports = {
   EditDocsLabelApi,
   addDocsTagsApi,
   AssignDocstoPatientApi,
-
   AddCategoriesApi,
   getallPatient,
   getallCategories,
   CategorizeDocsApi,
   updateDocsCategoryApi,
+  assignDocstoPatientApi,
   // uploadDocsSummariesApi,
 };
 
 const getDocsData = async (docs) => {
   const categoriesData = await Catagory.findById(docs.categoryId);
+  const userData = await User.findById(docs.patientId).select("firstName lastName email");
 
   return {
     docsId: docs._id,
-    userId: docs?.patientId,
+    userId: docs.patientId,
+    userName: userData ? `${userData.firstName} ${userData.lastName}` : "Unknown",
+    userEmail: userData ? userData.email : "No email",
     fileUrl: docs.fileUrl,
-    category: categoriesData ? categoriesData.categoryName : null,
-    categoryId: docs?.categoryId,
+    category: categoriesData ? categoriesData.categoryName : "Unknown Category",
+    categoryId: docs.categoryId,
     size: docs.size,
     createdAt: docs.createdAt,
-    title: docs.title || docs.originalname,
+    title: docs.title || docs.originalname || "Untitled Document",
     summary: docs.summary || "", 
   };
 };
-
 
 const getCategoryData = async (category) => {
   return {

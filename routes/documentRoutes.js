@@ -13,6 +13,7 @@ const {
   addDocsTagsApi,
   updateDocsCategoryApi,
   getAllDocsForSummary,
+  assignDocstoPatientApi
 } = require("../controllers/DocumentController");
 // const upload = require("../middlewares/uploadDocs");
 
@@ -27,6 +28,7 @@ const upload = multer({ storage: storage });
 
 // {Document Part}
 router.post("/uploadDocsApi", upload.array('file'), uploadDocsApi);
+router.post("/assignDocstoPatientApi", upload.array('file'), assignDocstoPatientApi);
 router.get("/getAllDocsApi", auth , getAllDocsApi);
 router.get("/getAllDocsForSummary", auth , getAllDocsForSummary);
 router.post("/addDocsLabelApi", addDocsLabelApi);
