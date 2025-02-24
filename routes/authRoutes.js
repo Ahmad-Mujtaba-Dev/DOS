@@ -51,16 +51,18 @@ router.post("/change-password", auth, changePasswordApi);
 router.get("/auth/token-is-valid", auth, checkTokenIsValidApi);
 router.post("/user-auto-login-api", auth, UserAutoLoginApi);
 router.get("/auth/get-all-users", auth, (req, res, next) => {
-  // Check if allUsers is true
   req.query.allUsers = req.query.allUsers === 'true';
   
-  // Only set pagination parameters if not requesting all users
+  if (req.query.role) {
+    const allowedRoles = ['admin', 'patient', 'super-admin'];
+    req.query.role = allowedRoles.includes(req.query.role) ? req.query.role : null;
+  }
+
   if (!req.query.allUsers) {
     req.query.page = parseInt(req.query.page) || 1;
     req.query.limit = parseInt(req.query.limit) || 10;
   }
   
-  // Set sorting parameters regardless
   req.query.sortBy = req.query.sortBy || 'createdAt';
   req.query.sortOrder = req.query.sortOrder || 'desc';
   next();
