@@ -8,17 +8,18 @@ const DocumentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Catagory",
   },
-  fileUrl: { type: String},
+  fileUrl: { type: String },
   uploadedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-  },  
+  },
   patientId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
   },
   tags: [{ type: String }],
   summary: { type: String, default: "" },
+  docDetails: {type:String, default:""},
   createdAt: { type: Date, default: Date.now },
 });
 

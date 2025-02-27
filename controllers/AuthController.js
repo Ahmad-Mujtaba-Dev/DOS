@@ -885,12 +885,9 @@ const createNewAdminApi = async (req, res, next) => {
     } = req.body;
 
     if (
-      !email ||
-      !firstName ||
-      !lastName ||
-      !phone ||
-      !password ||
-      !confirmPassword
+      !email
+      // !firstName ||
+      // !lastName ||
     ) {
       return res
         .status(400)
@@ -901,13 +898,6 @@ const createNewAdminApi = async (req, res, next) => {
       return res
         .status(400)
         .json({ status: "error", message: "Invalid email" });
-    }
-
-    const { code, number } = phone;
-    if (!code || !number) {
-      return res
-        .status(400)
-        .json({ status: "error", message: "Phone object is incomplete" });
     }
 
     if (password.length < 8) {
@@ -941,7 +931,6 @@ const createNewAdminApi = async (req, res, next) => {
       firstName,
       lastName,
       email,
-      phone: { code, number },
       password,
       role,
     });
@@ -1055,6 +1044,54 @@ const deleteAdminApi = async (req, res, next) => {
   }
 };
 
+const deleteUserApi = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    console.log("User ID:", userId);
+
+    // Validate MongoDB ID
+    if (!userId || !validator.isMongoId(userId)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid User ID",
+      });
+    }
+
+    // Find and delete user
+    const user = await User.findByIdAndDelete(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found",
+      });
+    }
+
+    // Optional: Send email notification to the removed user
+    // try {
+    //   await sendEmail({
+    //     email: user.email,
+    //     subject: "Account Removed",
+    //     text: "Your account has been removed from our system.",
+    //   });
+    // } catch (emailError) {
+    //   console.error("Error sending email:", emailError.message);
+    // }
+
+    res.status(200).json({
+      status: "success",
+      message: "User removed successfully",
+    });
+
+  } catch (error) {
+    console.error("Error in deleting user:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Internal server error",
+    });
+  }
+};
+
 const changeAdminPasswordApi = async (req, res, next) => {
   try {
     const { newPassword, confirmPassword, adminId } = req.body;
@@ -1138,6 +1175,7 @@ module.exports = {
   changeAdminPasswordApi,
   checkTokenIsValidApi,
   UserAutoLoginApi,
+  deleteUserApi,
 };
 
 const getAdminsData = async (user) => {

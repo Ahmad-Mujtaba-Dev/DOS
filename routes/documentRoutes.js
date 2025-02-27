@@ -34,7 +34,7 @@ router.get("/getAllDocsForSummary", auth , getAllDocsForSummary);
 router.post("/addDocsLabelApi", addDocsLabelApi);
 router.post("/addDocsTagsApi", addDocsTagsApi);
 router.post("/downloadDocsApi", DownloadDocApi);
-router.post("/deleteDocsApi", DeleteDocsApi);
+router.get("/deleteDocsApi/:docsId", DeleteDocsApi);
 
 router.post("/editDocsLabelApi", EditDocsLabelApi);
 router.post("/update-docs-category", updateDocsCategoryApi);

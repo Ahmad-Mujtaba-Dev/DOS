@@ -17,7 +17,8 @@ const uploadDocsApi = async (req, res) => {
   console.log("files --->", req.files);
   try {
     console.log("req.body", req.body);
-    const { id, folderName, summary } = req.body;
+    const { id, folderName, summary, docDetails } = req.body;
+    console.log("docsDetails", docDetails)
 
     if (!req.files || req.files.length === 0) {
       return res.status(400).send("No files uploaded.");
@@ -28,7 +29,7 @@ const uploadDocsApi = async (req, res) => {
     if (!user) {
       return res
         .status(400)
-        .json({ status: "error", message: "user not found" });
+        .json({ status: "error", message: "User not found" });
     }
 
     let category = await Catagory.findOne({ categoryName: folderName });
@@ -37,6 +38,8 @@ const uploadDocsApi = async (req, res) => {
         categoryName: folderName,
       });
     }
+
+   
 
     const uploadPromises = req.files.map(async (file) => {
       const fileName = file.originalname;
@@ -57,7 +60,8 @@ const uploadDocsApi = async (req, res) => {
         patientId: id,
         fileUrl: uploadedImage.Location,
         categoryId: category._id,
-        summary: summary // Add summary field
+        summary: summary, // Store summary
+        docDetails
       });
     });
 
@@ -73,7 +77,7 @@ const uploadDocsApi = async (req, res) => {
     );
 
     res.status(200).json({
-      status: "success", 
+      status: "success",
       data: documentsData,
       message: "Documents Uploaded Successfully",
     });
@@ -311,8 +315,10 @@ const DownloadDocApi = async (req, res) => {
 };
 
 const DeleteDocsApi = async (req, res) => {
+
   try {
-    const { docsId } = req.body;
+    const { docsId } = req.params;
+    
     const document = await Document.findById({ _id: docsId });
     console.log("document", document);
 
@@ -343,7 +349,7 @@ const EditDocsLabelApi = async (req, res) => {
       { _id: docsId },
       { $set: { title } },
       { new: true }
-    ); 
+    );
     const myDocsData = await Document.findOne({ _id: docsId });
 
     res.status(200).json({
@@ -375,7 +381,6 @@ const getAllDocsApi = async (req, res, next) => {
     const docs = await Document.find({ userId: id });
     console.log("docs 302", docs);
 
-
     if (!docs || docs.length == 0) {
       return res
         .status(400)
@@ -392,7 +397,7 @@ const getAllDocsApi = async (req, res, next) => {
     );
 
     res.status(200).json({
-      status: "success", 
+      status: "success",
       data: {
         docsData,
       },
@@ -420,7 +425,10 @@ const getAllDocsForSummary = async (req, res, next) => {
         .json({ status: "error", message: "User not found" });
     }
 
-    const docs = await Document.find({ userId: id, summary: { $exists: true, $ne: "" } });
+    const docs = await Document.find({
+      userId: id,
+      summary: { $exists: true, $ne: "" },
+    });
 
     if (!docs || docs.length == 0) {
       return res
@@ -438,7 +446,7 @@ const getAllDocsForSummary = async (req, res, next) => {
     );
 
     res.status(200).json({
-      status: "success", 
+      status: "success",
       data: {
         docsData,
       },
@@ -600,7 +608,7 @@ const updateDocsCategoryApi = async (req, res) => {
     if (!docsId) {
       return res.status(400).json({
         status: "error",
-        message: "Document ID is required"
+        message: "Document ID is required",
       });
     }
 
@@ -609,7 +617,7 @@ const updateDocsCategoryApi = async (req, res) => {
     if (!document) {
       return res.status(404).json({
         status: "error",
-        message: "Document not found"
+        message: "Document not found",
       });
     }
 
@@ -620,10 +628,10 @@ const updateDocsCategoryApi = async (req, res) => {
       if (!category) {
         return res.status(404).json({
           status: "error",
-          message: "Category not found with provided ID"
+          message: "Category not found with provided ID",
         });
       }
-    } 
+    }
     // If categoryName is provided, find or create category
     else if (categoryName) {
       category = await Catagory.findOne({ categoryName });
@@ -633,7 +641,7 @@ const updateDocsCategoryApi = async (req, res) => {
     } else {
       return res.status(400).json({
         status: "error",
-        message: "Either categoryId or categoryName must be provided"
+        message: "Either categoryId or categoryName must be provided",
       });
     }
 
@@ -643,32 +651,34 @@ const updateDocsCategoryApi = async (req, res) => {
 
     // Get updated document data with populated fields
     const updatedDoc = await Document.findById(docsId)
-      .populate('categoryId')
-      .populate('patientId', 'firstName lastName email');
+      .populate("categoryId")
+      .populate("patientId", "firstName lastName email");
 
     const updatedDocData = {
       docsId: updatedDoc._id,
       userId: updatedDoc.patientId?._id,
-      userName: updatedDoc.patientId ? `${updatedDoc.patientId.firstName} ${updatedDoc.patientId.lastName}` : null,
+      userName: updatedDoc.patientId
+        ? `${updatedDoc.patientId.firstName} ${updatedDoc.patientId.lastName}`
+        : null,
       fileUrl: updatedDoc.fileUrl,
       category: category.categoryName,
       categoryId: category._id,
       size: updatedDoc.size,
       createdAt: updatedDoc.createdAt,
-      title: updatedDoc.title || updatedDoc.originalname
+      title: updatedDoc.title || updatedDoc.originalname,
     };
 
     res.status(200).json({
       status: "success",
       data: updatedDocData,
-      message: "Document category updated successfully"
+      message: "Document category updated successfully",
     });
   } catch (error) {
     console.error("Error updating document category:", error);
     res.status(500).json({
       status: "error",
       message: "Failed to update document category",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -693,13 +703,18 @@ module.exports = {
 };
 
 const getDocsData = async (docs) => {
+  console.log("docs", docs);
   const categoriesData = await Catagory.findById(docs.categoryId);
-  const userData = await User.findById(docs.patientId).select("firstName lastName email");
+  const userData = await User.findById(docs.patientId).select(
+    "firstName lastName email"
+  );
 
   return {
     docsId: docs._id,
     userId: docs.patientId,
-    userName: userData ? `${userData.firstName} ${userData.lastName}` : "Unknown",
+    userName: userData
+      ? `${userData.firstName} ${userData.lastName}`
+      : "Unknown",
     userEmail: userData ? userData.email : "No email",
     fileUrl: docs.fileUrl,
     category: categoriesData ? categoriesData.categoryName : "Unknown Category",
@@ -707,7 +722,8 @@ const getDocsData = async (docs) => {
     size: docs.size,
     createdAt: docs.createdAt,
     title: docs.title || docs.originalname || "Untitled Document",
-    summary: docs.summary || "", 
+    summary: docs.summary || "",
+    docDetails: docs.docDetails,
   };
 };
 
